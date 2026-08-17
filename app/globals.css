@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/* Theme is class-driven (html.dark) so the Settings toggle can override the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+
+  --radius-card: 20px;
+
+  --animate-pop: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-rise: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fill: fill-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+:root {
+  /* Light — warm cream, the primary design. */
+  --canvas: #faf7f0;
+  --surface: #ffffff;
+  --sunken: #f2eee4;
+  --line: #e8e1d3;
+  --line-strong: #d8cfbc;
+  --ink: #1e1c18;
+  --ink-soft: #524d45;
+  --ink-muted: #8d867b;
+  --accent: #1e1c18;
+
+  /* Empty year/month cells. */
+  --cell-empty: #ece7db;
+  --cell-empty-off: #f4f1e9;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Dark — deep charcoal, never pure black. */
+  --canvas: #16161a;
+  --surface: #1d1d22;
+  --sunken: #232329;
+  --line: #2c2c33;
+  --line-strong: #3a3a43;
+  --ink: #f3f1ec;
+  --ink-soft: #c2beb6;
+  --ink-muted: #8b877f;
+  --accent: #f3f1ec;
+
+  --cell-empty: #2a2a31;
+  --cell-empty-off: #212127;
+
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background-color: var(--canvas);
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Keep content clear of the iPhone home indicator when installed as a PWA. */
+  overscroll-behavior-y: none;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fill-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cell-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.cell-enter {
+  animation: cell-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* A thin, unobtrusive scrollbar for the year grid's horizontal scroll. */
+.tidy-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.tidy-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.tidy-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tidy-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+/* Swipeable strips scroll by gesture; the bar itself is just noise. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Numbers that tick should not reflow their container. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
