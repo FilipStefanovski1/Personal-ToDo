@@ -15,6 +15,9 @@ function Figure({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/** Placeholder for a figure that has no meaningful value yet. */
+const NoData = () => <span className="text-[15px] font-semibold text-ink-muted">—</span>;
+
 /**
  * Category-level numbers, chosen per goal type — "perfect days" is meaningless
  * for an Activity group, and "most common activity" is meaningless for
@@ -51,6 +54,11 @@ export function CategoryStatsCard({
         </div>
       </div>
 
+      {stats.totalCompletions === 0 ? (
+        <p className="mt-4 text-[12.5px] leading-relaxed text-ink-muted">
+          Your patterns will appear here over time.
+        </p>
+      ) : (
       <div className="mt-4 grid grid-cols-3 gap-2">
         {category.goalType === "any" ? (
           <>
@@ -81,10 +89,14 @@ export function CategoryStatsCard({
             <Figure
               label="Average"
               value={
-                <>
-                  <AnimatedNumber value={stats.averageCompletion} />
-                  <span className="text-[12px] font-semibold text-ink-muted">%</span>
-                </>
+                stats.hasAverage ? (
+                  <>
+                    <AnimatedNumber value={stats.averageCompletion} />
+                    <span className="text-[12px] font-semibold text-ink-muted">%</span>
+                  </>
+                ) : (
+                  <NoData />
+                )
               }
             />
             <Figure
@@ -99,6 +111,7 @@ export function CategoryStatsCard({
           </>
         )}
       </div>
+      )}
 
       {category.goalType === "any" && stats.topHabitName ? (
         <p className="mt-3.5 border-t border-line pt-3 text-[12px] text-ink-muted">

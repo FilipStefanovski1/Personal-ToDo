@@ -21,8 +21,7 @@ export default function SettingsPage() {
     updateSettings,
     replaceAll,
     resetAll,
-    loadDemoData,
-    clearDemoData,
+    clearHistory,
   } = useStore();
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -164,13 +163,13 @@ export default function SettingsPage() {
       </section>
 
       <section className="space-y-3">
-        <SectionLabel>Demo &amp; reset</SectionLabel>
+        <SectionLabel>Reset</SectionLabel>
         <Card className="space-y-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13.5px] font-semibold tracking-tight">Clear demo data</p>
+              <p className="text-[13.5px] font-semibold tracking-tight">Clear all history</p>
               <p className="text-[12.5px] text-ink-muted">
-                Wipes all completion history but keeps your habits.
+                Wipes every completion back to zero, keeping your categories and items.
               </p>
             </div>
             {confirming === "clear" ? (
@@ -182,9 +181,9 @@ export default function SettingsPage() {
                   size="sm"
                   variant="danger"
                   onClick={() => {
-                    clearDemoData();
+                    clearHistory();
                     setConfirming(null);
-                    setNotice({ tone: "ok", message: "History cleared." });
+                    setNotice({ tone: "ok", message: "History cleared. Back to zero." });
                   }}
                 >
                   Clear history
@@ -199,27 +198,9 @@ export default function SettingsPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
             <div className="min-w-0">
-              <p className="text-[13.5px] font-semibold tracking-tight">Reload demo data</p>
-              <p className="text-[12.5px] text-ink-muted">
-                Replaces everything with the sample habits and 30 days of history.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => {
-                loadDemoData();
-                setNotice({ tone: "ok", message: "Demo data loaded." });
-              }}
-            >
-              Load demo
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-            <div className="min-w-0">
               <p className="text-[13.5px] font-semibold tracking-tight">Reset everything</p>
               <p className="text-[12.5px] text-ink-muted">
-                Deletes all habits, history and settings. Export first.
+                Deletes all categories, items, history and settings. Export first.
               </p>
             </div>
             {confirming === "reset" ? (

@@ -144,6 +144,13 @@ export default function YearPage() {
               </p>
             </div>
 
+            {summary.totalCompletions === 0 ? (
+              <p className="mb-5 text-[12.5px] leading-relaxed text-ink-muted">
+                Start tracking to build your year. Every item you complete fills in its own
+                square, and the sheet grows from here.
+              </p>
+            ) : null}
+
             {mode === "byHabit" ? (
               <YearByHabit year={year} categories={shownCategories} habits={shownHabits} />
             ) : (

@@ -1,15 +1,11 @@
-import type { AppData, Category, CompletionMap, Habit } from "@/types";
+import type { AppData, Category, Habit } from "@/types";
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, createId } from "./normalize";
-import { getWeekday, shiftKey, todayKey } from "./dates";
-import { isHabitDueOn } from "./schedule";
 
 interface SeedItem {
   name: string;
   emoji: string;
   color: string;
   schedule?: Habit["schedule"];
-  /** Rough share of due days completed, used only for the demo history. */
-  rate: number;
 }
 
 interface SeedGroup {
@@ -23,43 +19,44 @@ interface SeedGroup {
  * First-launch structure: categories organise things, individual items are
  * what actually get tracked. Colours are picked so each group reads as a
  * family (warm supplements, cool activity) rather than a random rainbow.
+ *
+ * This seeds STRUCTURE ONLY. No completion history is ever generated — the
+ * year grid is meant to fill in from real use, and a number on this screen
+ * should always mean something actually happened.
  */
 const SEED_GROUPS: SeedGroup[] = [
   {
     name: "Supplements",
     goalType: "all",
     items: [
-      { name: "Vitamin C", emoji: "💊", color: "#F5B814", rate: 0.94 },
-      { name: "Vitamin B", emoji: "💊", color: "#F97316", rate: 0.9 },
-      { name: "Magnesium", emoji: "💊", color: "#C05BE0", rate: 0.72 },
-      { name: "Zinc", emoji: "💊", color: "#EC5A8D", rate: 0.86 },
-      { name: "Creatine", emoji: "⚡", color: "#8B5CF6", rate: 0.96 },
+      { name: "Vitamin C", emoji: "💊", color: "#F5B814" },
+      { name: "Vitamin B", emoji: "💊", color: "#F97316" },
+      { name: "Magnesium", emoji: "💊", color: "#C05BE0" },
+      { name: "Zinc", emoji: "💊", color: "#EC5A8D" },
+      { name: "Creatine", emoji: "⚡", color: "#8B5CF6" },
     ],
   },
   {
     name: "Activity",
     goalType: "any",
     items: [
-      { name: "Run", emoji: "🏃", color: "#12A594", rate: 0.24 },
-      { name: "Basketball", emoji: "🏀", color: "#0FB0C4", rate: 0.3 },
-      { name: "Gym", emoji: "🏋️", color: "#3B9EF5", rate: 0.46 },
+      { name: "Run", emoji: "🏃", color: "#12A594" },
+      { name: "Basketball", emoji: "🏀", color: "#0FB0C4" },
+      { name: "Gym", emoji: "🏋️", color: "#3B9EF5" },
     ],
   },
   {
     name: "Other",
     goalType: "all",
     items: [
-      { name: "Read 20 minutes", emoji: "📖", color: "#5B6BF0", rate: 0.78 },
-      { name: "Drink enough water", emoji: "💧", color: "#4DA167", rate: 0.85 },
+      { name: "Read", emoji: "📖", color: "#5B6BF0" },
+      { name: "Water", emoji: "💧", color: "#4DA167" },
     ],
   },
 ];
 
 export function createSeedStructure(): { categories: Category[]; habits: Habit[] } {
-  const now = new Date();
-  // Backdate creation so the seeded history counts toward completion rates.
-  const createdAt = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30).toISOString();
-
+  const createdAt = new Date().toISOString();
   const categories: Category[] = [];
   const habits: Habit[] = [];
 
@@ -93,53 +90,19 @@ export function createSeedStructure(): { categories: Category[]; habits: Habit[]
   return { categories, habits };
 }
 
-/** Completion rate per habit id, for shaping believable demo history. */
-function seedRates(habits: Habit[]): Map<string, number> {
-  const flat = SEED_GROUPS.flatMap((g) => g.items);
-  const rates = new Map<string, number>();
-  habits.forEach((habit) => {
-    rates.set(habit.id, flat.find((i) => i.name === habit.name)?.rate ?? 0.75);
-  });
-  return rates;
-}
-
 /**
- * Plausible-looking history for the last 30 days so the year grid is colourful
- * on first open. Weekends are a little weaker, and activities cluster the way
- * they do in real life rather than firing independently every day.
+ * The full first-launch snapshot: the starting structure, no history.
+ *
+ * `completions` is deliberately empty. A fresh install starts at zero and
+ * every cell that gains colour from here on represents something real.
  */
-export function createDemoCompletions(habits: Habit[], days = 30): CompletionMap {
-  const completions: CompletionMap = {};
-  const today = todayKey();
-  const rates = seedRates(habits);
-
-  for (let offset = days; offset >= 0; offset--) {
-    const key = shiftKey(today, -offset);
-    const weekday = getWeekday(key);
-    const isWeekend = weekday === 0 || weekday === 6;
-    const done: string[] = [];
-
-    for (const habit of habits) {
-      if (!isHabitDueOn(habit, key)) continue;
-      const base = rates.get(habit.id) ?? 0.75;
-      const rate = isWeekend ? base * 0.85 : base;
-      if (Math.random() < rate) done.push(habit.id);
-    }
-
-    if (done.length > 0) completions[key] = done;
-  }
-
-  return completions;
-}
-
-/** The full first-launch snapshot: seed structure + demo history + defaults. */
 export function createSeedData(): AppData {
   const { categories, habits } = createSeedStructure();
   return {
     version: SCHEMA_VERSION,
     categories,
     habits,
-    completions: createDemoCompletions(habits),
+    completions: {},
     settings: { ...DEFAULT_SETTINGS },
   };
 }

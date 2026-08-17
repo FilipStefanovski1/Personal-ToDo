@@ -96,8 +96,15 @@ export default function TodayPage() {
           <div>
             <p className="text-[13.5px] font-semibold tracking-tight">Your year so far</p>
             <p className="mt-0.5 text-[12.5px] text-ink-muted">
-              <AnimatedNumber value={yearCount} /> completions
-              {doneToday > 0 ? ` · ${doneToday} today` : ""}
+              {yearCount === 0 ? (
+                "Nothing recorded yet — your first square is one tap away"
+              ) : (
+                <>
+                  <AnimatedNumber value={yearCount} />{" "}
+                  {yearCount === 1 ? "completion" : "completions"}
+                  {doneToday > 0 ? ` · ${doneToday} today` : ""}
+                </>
+              )}
             </p>
           </div>
           <ArrowRight

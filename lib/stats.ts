@@ -17,6 +17,28 @@ import {
 } from "./dates";
 import { isScheduledDay } from "./schedule";
 
+/**
+ * The first date on which any of `habitIds` was recorded, or null if none ever
+ * was.
+ *
+ * Rates are measured from here rather than from a habit's `createdAt`. Creating
+ * a habit is not the same as starting to track it — anchoring on `createdAt`
+ * would count every day between as a miss and report a demoralising 0% to
+ * someone on their first day. Gaps *after* you start still count against you,
+ * which is the honest part.
+ */
+export function firstRecordedDate(
+  completions: CompletionMap,
+  habitIds: Set<string>,
+): DateKey | null {
+  let earliest: DateKey | null = null;
+  for (const [date, ids] of Object.entries(completions)) {
+    if (!ids.some((id) => habitIds.has(id))) continue;
+    if (earliest === null || date < earliest) earliest = date;
+  }
+  return earliest;
+}
+
 /** Fast membership lookup used by every stat below. */
 export function makeCompletionLookup(completions: CompletionMap) {
   const index = new Map<DateKey, Set<string>>();
@@ -26,13 +48,24 @@ export function makeCompletionLookup(completions: CompletionMap) {
   return (habitId: string, date: DateKey) => index.get(date)?.has(habitId) ?? false;
 }
 
-/** Every date from the habit's creation day through today, oldest first. */
-function habitDateRange(habit: Habit, upTo: DateKey): DateKey[] {
-  const created = toDateKey(fromDateKey(toDateKey(new Date(habit.createdAt))));
-  const span = daysBetween(created, upTo);
+/**
+ * Every date from the day this habit was first recorded through today.
+ *
+ * Anchored on the first completion rather than `createdAt` — see
+ * `firstRecordedDate`. Returns just today when nothing has been recorded yet,
+ * so a brand-new habit reports zeroes rather than a long run of misses.
+ */
+function habitDateRange(
+  habit: Habit,
+  completions: CompletionMap,
+  upTo: DateKey,
+): DateKey[] {
+  const anchor = firstRecordedDate(completions, new Set([habit.id]));
+  if (anchor === null) return [upTo];
+  const span = daysBetween(anchor, upTo);
   if (span < 0) return [upTo];
   const keys: DateKey[] = [];
-  for (let i = 0; i <= span; i++) keys.push(shiftKey(created, i));
+  for (let i = 0; i <= span; i++) keys.push(shiftKey(anchor, i));
   return keys;
 }
 
@@ -106,7 +139,7 @@ export function computeHabitStats(
   isDone = makeCompletionLookup(completions),
 ): HabitStats {
   const today = todayKey();
-  const dates = habitDateRange(habit, today);
+  const dates = habitDateRange(habit, completions, today);
   const year = today.slice(0, 4);
   const month = today.slice(0, 7);
 
@@ -135,6 +168,9 @@ export function computeHabitStats(
 
   const weekly = habit.schedule.type === "timesPerWeek";
 
+  // Whether any finished day has been judged; today is excluded while it runs.
+  const hasRate = weekly ? totalCompleted > 0 : scheduledDays > 0;
+
   let completionRate: number;
   if (weekly) {
     const target = habit.schedule.type === "timesPerWeek" ? habit.schedule.timesPerWeek : 1;
@@ -153,6 +189,7 @@ export function computeHabitStats(
     longestStreak: streaks.longest,
     streakUnit: weekly ? "weeks" : "days",
     completionRate,
+    hasRate,
     completedThisMonth,
     completedThisYear,
     totalCompleted,
@@ -179,21 +216,22 @@ export function computeCategoryStats(
 
   const empty: CategoryStats = {
     goalType: category.goalType,
+    totalCompletions: 0,
     goalDaysThisMonth: 0,
     goalDaysThisYear: 0,
     currentStreak: 0,
     longestStreak: 0,
     averageCompletion: 0,
+    hasAverage: false,
     topHabitName: null,
     topHabitCount: 0,
   };
   if (live.length === 0) return empty;
 
-  // Walk from the earliest habit creation date to today.
-  const earliest = live
-    .map((h) => toDateKey(new Date(h.createdAt)))
-    .reduce((min, d) => (d < min ? d : min), today);
-  const span = daysBetween(earliest, today);
+  // Walk from the day tracking actually started, not from habit creation.
+  const anchor = firstRecordedDate(completions, new Set(live.map((h) => h.id)));
+  if (anchor === null) return empty;
+  const span = daysBetween(anchor, today);
   if (span < 0) return empty;
 
   let goalDaysThisMonth = 0;
@@ -203,14 +241,16 @@ export function computeCategoryStats(
   let longestStreak = 0;
   let running = 0;
   let currentStreak = 0;
+  let totalCompletions = 0;
 
   const perHabitCounts = new Map<string, number>();
 
   for (let i = 0; i <= span; i++) {
-    const date = shiftKey(earliest, i);
+    const date = shiftKey(anchor, i);
     const progress = categoryProgress(category, live, date, isDone);
     if (progress.due.length === 0) continue;
 
+    totalCompletions += progress.completed.length;
     for (const habit of progress.completed) {
       if (date.startsWith(year)) {
         perHabitCounts.set(habit.id, (perHabitCounts.get(habit.id) ?? 0) + 1);
@@ -246,11 +286,13 @@ export function computeCategoryStats(
 
   return {
     goalType: category.goalType,
+    totalCompletions,
     goalDaysThisMonth,
     goalDaysThisYear,
     currentStreak,
     longestStreak,
     averageCompletion: ratioDays === 0 ? 0 : Math.round((ratioSum / ratioDays) * 100),
+    hasAverage: ratioDays > 0,
     topHabitName,
     topHabitCount,
   };
@@ -260,11 +302,20 @@ export interface YearSummary {
   year: number;
   totalCompletions: number;
   consistency: number;
+  /** False when nothing has been judged yet — show an empty state, not 0%. */
+  hasConsistency: boolean;
+  /** Null until there's enough history for the comparison to mean anything. */
   bestMonth: string | null;
   bestMonthCount: number;
   overallStreak: number;
   activeDays: number;
 }
+
+/**
+ * Naming a "best" month needs at least two months to compare. Before that the
+ * answer is just "the only month you've used the app", which tells you nothing.
+ */
+const MIN_MONTHS_FOR_BEST = 2;
 
 /**
  * Headline numbers for the Year view. `consistency` is completions divided by
@@ -298,20 +349,25 @@ export function computeYearSummary(
   // would punish exactly the behaviour the goal type exists to allow.
   let goalDays = 0;
   let judgedDays = 0;
-  const start = `${year}-01-01`;
   const end = today.startsWith(String(year)) ? today : `${year}-12-31`;
-  const span = daysBetween(start, end);
 
   for (const category of categories) {
     const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
-    if (inCategory.length === 0 || span < 0) continue;
+    if (inCategory.length === 0) continue;
+
+    // Judge only from the day this category was first tracked. Nothing was
+    // missed before you started.
+    const anchor = firstRecordedDate(completions, new Set(inCategory.map((h) => h.id)));
+    if (anchor === null) continue;
+    const start = anchor > `${year}-01-01` ? anchor : `${year}-01-01`;
+    const span = daysBetween(start, end);
+    if (span < 0) continue;
+
     for (let i = 0; i <= span; i++) {
       const date = shiftKey(start, i);
       if (date === today) continue;
       const progress = categoryProgress(category, inCategory, date, isDone);
       if (progress.due.length === 0) continue;
-      // Days before the habits existed shouldn't count against you.
-      if (!inCategory.some((h) => toDateKey(new Date(h.createdAt)) <= date)) continue;
       judgedDays++;
       if (progress.goalMet) goalDays++;
     }
@@ -326,12 +382,17 @@ export function computeYearSummary(
     "July", "August", "September", "October", "November", "December",
   ];
 
+  const monthsWithData = monthCounts.filter((count) => count > 0).length;
+  const bestMonthIsMeaningful =
+    monthsWithData >= MIN_MONTHS_FOR_BEST && monthCounts[bestIndex] > 0;
+
   return {
     year,
     totalCompletions,
     consistency: judgedDays === 0 ? 0 : Math.round((goalDays / judgedDays) * 100),
-    bestMonth: monthCounts[bestIndex] > 0 ? MONTHS[bestIndex] : null,
-    bestMonthCount: monthCounts[bestIndex],
+    hasConsistency: judgedDays > 0,
+    bestMonth: bestMonthIsMeaningful ? MONTHS[bestIndex] : null,
+    bestMonthCount: bestMonthIsMeaningful ? monthCounts[bestIndex] : 0,
     overallStreak: computeOverallStreak(categories, habits, completions),
     activeDays: activeDaySet.size,
   };

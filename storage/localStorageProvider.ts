@@ -1,14 +1,15 @@
 import type { AppData } from "@/types";
 import type { StorageProvider } from "./provider";
-import { normalizeAppData } from "@/lib/normalize";
+import { migrateStoredData } from "@/lib/migrations";
 
 const STORAGE_KEY = "habit-year:v1";
 
 /**
  * Browser localStorage implementation of `StorageProvider`.
  *
- * Reads are validated through `normalizeAppData` so a corrupted or
- * hand-edited blob degrades to sane defaults instead of crashing the app.
+ * Reads go through `migrateStoredData`, which validates the blob (so a
+ * corrupted or hand-edited one degrades to sane defaults instead of crashing)
+ * and upgrades older schema versions.
  */
 export function createLocalStorageProvider(
   key: string = STORAGE_KEY,
@@ -21,7 +22,7 @@ export function createLocalStorageProvider(
       try {
         const raw = window.localStorage.getItem(key);
         if (!raw) return null;
-        return normalizeAppData(JSON.parse(raw));
+        return migrateStoredData(JSON.parse(raw));
       } catch {
         // Unparseable data: treat as a first launch rather than hard-failing.
         return null;

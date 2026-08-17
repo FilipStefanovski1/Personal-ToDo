@@ -142,18 +142,49 @@ silently file completions on the wrong day. `daysBetween` normalises through
 Future dates can't be completed — `setCompletion` refuses them, and future cells
 are non-interactive in the UI.
 
+## Statistics are never invented
+
+Every figure on every screen is computed from stored completion records. The app
+seeds structure — categories and items — but **never** seeds completion history,
+so a fresh install genuinely reads 0 and the year grid is genuinely empty. That
+emptiness is the point: the colour arrives as you earn it.
+
+Rates are measured from the day tracking actually started, not from when a habit
+was created. Creating a habit isn't the same as beginning to track it, and
+anchoring on creation would count the gap as misses and report a demoralising 0%
+on day one. Gaps *after* you start still count against you.
+
+Where there isn't enough real data for a number to mean anything, the UI says so
+rather than showing a confident zero:
+
+- **Consistency** — "Not enough data yet" until a day has finished.
+- **Best month** — needs at least two months with data; naming a "best" out of
+  one month tells you nothing.
+- **Average / rate** — an em-dash until a day has finished (today is excluded
+  while it's still in progress).
+- **Category and item cards** — "Your patterns will appear here over time."
+
 ## Data, backup, and first launch
 
 Everything lives under the `habit-year:v1` localStorage key (the key name is
 kept for continuity; the schema inside is versioned separately and is now at
-v2). On a genuinely empty install the app seeds Supplements, Activity and Other
-plus ~30 days of plausible history so the year view is immediately colourful;
-**Settings → Clear demo data** wipes the history and keeps the structure, and
-**Reset everything** clears the lot.
+v3). On a genuinely empty install the app seeds Supplements, Activity and Other
+with their items and **no history at all**. **Settings → Clear all history**
+resets every completion to zero while keeping the structure; **Reset everything**
+clears the lot.
 
-Data saved before categories existed is migrated on load: those habits are moved
-into a fallback **Other** category with their history intact. The same repair
-runs on import, so a v1 export file still loads.
+Migrations run on load from storage — never on import, since restoring a backup
+is an explicit act and that history must survive untouched:
+
+- **v1 → v2** — habits saved before categories existed move into a fallback
+  **Other** category, history intact.
+- **v2 → v3** — earlier versions generated ~30 days of demo completions on first
+  launch. Completions are stored as bare habit ids under a date key, with no
+  timestamp or provenance flag, so no individual record can be identified as
+  generated. What is reliable is the shape: the generator ran once at install,
+  writing a contiguous block ending that day. So v3 drops everything dated
+  before today and keeps today untouched — it may leave a few generated entries
+  on the install day, but it can never delete a real one.
 
 Because localStorage is per-browser and can be cleared by the browser itself,
 **Settings → Export JSON** is the backup. Import accepts both the export bundle

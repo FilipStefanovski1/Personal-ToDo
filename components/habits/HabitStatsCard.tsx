@@ -38,6 +38,12 @@ export function HabitStatsCard({ habit, stats }: { habit: Habit; stats: HabitSta
         </div>
       </div>
 
+      {stats.totalCompleted === 0 ? (
+        <p className="mt-4 text-[12.5px] leading-relaxed text-ink-muted">
+          No completions yet.
+        </p>
+      ) : (
+        <>
       <div className="mt-4 grid grid-cols-4 gap-2">
         <Figure
           label="Streak"
@@ -61,24 +67,32 @@ export function HabitStatsCard({ habit, stats }: { habit: Habit; stats: HabitSta
         <Figure
           label="Year"
           value={
-            <>
-              <AnimatedNumber value={stats.completionRate} />
-              <span className="text-[12px] font-semibold text-ink-muted">%</span>
-            </>
+            stats.hasRate ? (
+              <>
+                <AnimatedNumber value={stats.completionRate} />
+                <span className="text-[12px] font-semibold text-ink-muted">%</span>
+              </>
+            ) : (
+              <span className="text-[15px] font-semibold text-ink-muted">—</span>
+            )
           }
         />
       </div>
 
-      <div
-        className="mt-3.5 h-1.5 overflow-hidden rounded-full"
-        style={{ background: withAlpha(habit.color, 0.16) }}
-        aria-hidden
-      >
+      {stats.hasRate ? (
         <div
-          className="h-full rounded-full transition-[width] duration-700 ease-out"
-          style={{ width: `${stats.completionRate}%`, background: habit.color }}
-        />
-      </div>
+          className="mt-3.5 h-1.5 overflow-hidden rounded-full"
+          style={{ background: withAlpha(habit.color, 0.16) }}
+          aria-hidden
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-700 ease-out"
+            style={{ width: `${stats.completionRate}%`, background: habit.color }}
+          />
+        </div>
+      ) : null}
+        </>
+      )}
     </div>
   );
 }

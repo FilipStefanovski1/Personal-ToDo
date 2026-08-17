@@ -11,8 +11,12 @@ import type {
 import { isValidDateKey } from "./dates";
 import { DEFAULT_COLOR, isValidHex } from "./colors";
 
-/** v2 introduced categories; v1 habits are migrated into a fallback group. */
-export const SCHEMA_VERSION = 2;
+/**
+ * v1 → v2 introduced categories; v1 habits migrate into a fallback group.
+ * v2 → v3 removed the first-launch demo history generator; stored data from
+ * earlier versions has its generated completions stripped on load.
+ */
+export const SCHEMA_VERSION = 3;
 
 /** Category used for habits that arrive without one (v1 data, sloppy imports). */
 export const FALLBACK_CATEGORY_NAME = "Other";

@@ -20,7 +20,7 @@ import type {
 } from "@/types";
 import { getStorageProvider } from "@/storage";
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, createId, normalizeAppData } from "./normalize";
-import { createSeedData, createDemoCompletions } from "./seed";
+import { createSeedData } from "./seed";
 import { isFuture } from "./dates";
 import { DEFAULT_COLOR } from "./colors";
 
@@ -82,8 +82,8 @@ interface StoreValue {
 
   replaceAll: (data: AppData) => void;
   resetAll: () => void;
-  loadDemoData: () => void;
-  clearDemoData: () => void;
+  /** Wipes completion history, keeping categories and items. */
+  clearHistory: () => void;
 }
 
 const EMPTY_DATA: AppData = {
@@ -375,12 +375,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     void providerRef.current.clear();
   }, []);
 
-  const loadDemoData = useCallback(() => {
-    setData(createSeedData());
-  }, []);
-
-  /** Wipes history but keeps the habits themselves. */
-  const clearDemoData = useCallback(() => {
+  /** Wipes history but keeps the categories and items themselves. */
+  const clearHistory = useCallback(() => {
     setData((prev) => ({ ...prev, completions: {} }));
   }, []);
 
@@ -439,8 +435,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       replaceAll,
       resetAll,
-      loadDemoData,
-      clearDemoData,
+      clearHistory,
     }),
     [
       ready, data, categories, activeCategories, habits, activeHabits, habitsIn,
@@ -448,7 +443,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addCategory, updateCategory, deleteCategory, setCategoryArchived, toggleCollapsed,
       moveCategory, reorderCategory,
       addHabit, updateHabit, deleteHabit, setArchived, moveHabit, reorderHabit,
-      updateSettings, replaceAll, resetAll, loadDemoData, clearDemoData,
+      updateSettings, replaceAll, resetAll, clearHistory,
     ],
   );
 
@@ -460,5 +455,3 @@ export function useStore(): StoreValue {
   if (!ctx) throw new Error("useStore must be used inside <StoreProvider>");
   return ctx;
 }
-
-export { createDemoCompletions };

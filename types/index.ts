@@ -107,8 +107,10 @@ export interface HabitStats {
   longestStreak: number;
   /** `timesPerWeek` habits streak in weeks; everything else in days. */
   streakUnit: "days" | "weeks";
-  /** 0–100, over scheduled days since the habit was created. */
+  /** 0–100, over scheduled days since tracking began. */
   completionRate: number;
+  /** False when no day has finished yet — show an empty state, not 0%. */
+  hasRate: boolean;
   completedThisMonth: number;
   completedThisYear: number;
   totalCompleted: number;
@@ -121,14 +123,21 @@ export interface HabitStats {
  */
 export interface CategoryStats {
   goalType: GoalType;
+  /** Completions recorded across this category's items — 0 means no data yet. */
+  totalCompletions: number;
   /** Days the category's goal was met. */
   goalDaysThisMonth: number;
   goalDaysThisYear: number;
   /** Consecutive days meeting the goal, counting back from today. */
   currentStreak: number;
   longestStreak: number;
-  /** Mean share of due items completed, 0–100, across days with items due. */
+  /** Mean share of due items completed, 0–100, across completed days. */
   averageCompletion: number;
+  /**
+   * False when no day has finished yet (today is excluded while in progress),
+   * so the UI shows an empty state instead of a meaningless 0%.
+   */
+  hasAverage: boolean;
   /** For "any" categories: the item logged most often this year. */
   topHabitName: string | null;
   topHabitCount: number;
