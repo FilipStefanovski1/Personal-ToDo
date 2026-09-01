@@ -19,12 +19,15 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function TodayPage() {
-  const { ready, activeHabits, data, settings, completionsOn } = useStore();
+  const { ready, activeHabits, data, settings, completionsOn, sickDaySet } = useStore();
   const [selected, setSelected] = useState(() => todayKey());
 
   const streak = useMemo(
-    () => (ready ? computeOverallStreak(data.categories, data.habits, data.completions) : 0),
-    [ready, data.categories, data.habits, data.completions],
+    () =>
+      ready
+        ? computeOverallStreak(data.categories, data.habits, data.completions, sickDaySet)
+        : 0,
+    [ready, data.categories, data.habits, data.completions, sickDaySet],
   );
 
   const yearCount = useMemo(() => {

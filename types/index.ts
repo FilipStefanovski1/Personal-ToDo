@@ -88,6 +88,14 @@ export interface AppData {
   categories: Category[];
   habits: Habit[];
   completions: CompletionMap;
+  /**
+   * Dates marked as a sick day. On a sick day, every category's goal is
+   * excused — nothing is "due", so nothing can be missed, and streaks and
+   * consistency figures skip the day entirely rather than counting it as a
+   * failure. Anything actually completed that day still counts as a real
+   * completion; only the *requirement* is waived.
+   */
+  sickDays: DateKey[];
   settings: AppSettings;
 }
 
@@ -99,6 +107,7 @@ export interface ExportBundle {
   categories: Category[];
   habits: Habit[];
   completions: HabitCompletion[];
+  sickDays: DateKey[];
   settings: AppSettings;
 }
 

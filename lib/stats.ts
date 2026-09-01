@@ -74,6 +74,7 @@ function dayStreaks(
   dates: DateKey[],
   isDone: (habitId: string, date: DateKey) => boolean,
   today: DateKey,
+  sickDays: ReadonlySet<DateKey>,
 ) {
   let longest = 0;
   let running = 0;
@@ -81,7 +82,9 @@ function dayStreaks(
   let current = 0;
 
   for (const date of dates) {
-    if (!isScheduledDay(habit.schedule, date)) continue; // off-days don't break it
+    // A sick day is treated exactly like a day the habit wasn't scheduled:
+    // it can't break the streak, and it can't build it either.
+    if (!isScheduledDay(habit.schedule, date) || sickDays.has(date)) continue;
     if (isDone(habit.id, date)) {
       running++;
       longest = Math.max(longest, running);
@@ -136,6 +139,7 @@ export function computeHabitStats(
   habit: Habit,
   completions: CompletionMap,
   weekStartsOn: 0 | 1,
+  sickDays: ReadonlySet<DateKey> = new Set(),
   isDone = makeCompletionLookup(completions),
 ): HabitStats {
   const today = todayKey();
@@ -151,12 +155,16 @@ export function computeHabitStats(
 
   for (const date of dates) {
     const done = isDone(habit.id, date);
+    // Raw counts always reflect what actually happened — a completion on a
+    // sick day still happened and still counts.
     if (done) {
       totalCompleted++;
       if (date.startsWith(year)) completedThisYear++;
       if (date.startsWith(month)) completedThisMonth++;
     }
-    if (isScheduledDay(habit.schedule, date)) {
+    // The rate's denominator excludes sick days: nothing was required, so
+    // the day can't drag the rate down.
+    if (isScheduledDay(habit.schedule, date) && !sickDays.has(date)) {
       // Today is excluded from the denominator until it's over, so an
       // unchecked morning doesn't visibly dent the rate.
       if (date !== today) {
@@ -182,7 +190,7 @@ export function computeHabitStats(
 
   const streaks = weekly
     ? weekStreaks(habit, dates, isDone, weekStartsOn, today)
-    : dayStreaks(habit, dates, isDone, today);
+    : dayStreaks(habit, dates, isDone, today, sickDays);
 
   return {
     currentStreak: streaks.current,
@@ -207,6 +215,7 @@ export function computeCategoryStats(
   category: Category,
   habitsInCategory: Habit[],
   completions: CompletionMap,
+  sickDays: ReadonlySet<DateKey> = new Set(),
   isDone = makeCompletionLookup(completions),
 ): CategoryStats {
   const today = todayKey();
@@ -247,7 +256,7 @@ export function computeCategoryStats(
 
   for (let i = 0; i <= span; i++) {
     const date = shiftKey(anchor, i);
-    const progress = categoryProgress(category, live, date, isDone);
+    const progress = categoryProgress(category, live, date, isDone, sickDays.has(date));
     if (progress.due.length === 0) continue;
 
     totalCompletions += progress.completed.length;
@@ -327,6 +336,7 @@ export function computeYearSummary(
   habits: Habit[],
   completions: CompletionMap,
   year: number,
+  sickDays: ReadonlySet<DateKey> = new Set(),
 ): YearSummary {
   const isDone = makeCompletionLookup(completions);
   const today = todayKey();
@@ -366,7 +376,7 @@ export function computeYearSummary(
     for (let i = 0; i <= span; i++) {
       const date = shiftKey(start, i);
       if (date === today) continue;
-      const progress = categoryProgress(category, inCategory, date, isDone);
+      const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
       if (progress.due.length === 0) continue;
       judgedDays++;
       if (progress.goalMet) goalDays++;
@@ -393,7 +403,7 @@ export function computeYearSummary(
     hasConsistency: judgedDays > 0,
     bestMonth: bestMonthIsMeaningful ? MONTHS[bestIndex] : null,
     bestMonthCount: bestMonthIsMeaningful ? monthCounts[bestIndex] : 0,
-    overallStreak: computeOverallStreak(categories, habits, completions),
+    overallStreak: computeOverallStreak(categories, habits, completions, sickDays),
     activeDays: activeDaySet.size,
   };
 }
@@ -411,6 +421,7 @@ export function computeOverallStreak(
   categories: Category[],
   habits: Habit[],
   completions: CompletionMap,
+  sickDays: ReadonlySet<DateKey> = new Set(),
 ): number {
   const liveCategories = categories.filter((c) => !c.archived);
   if (liveCategories.length === 0) return 0;
@@ -432,13 +443,16 @@ export function computeOverallStreak(
           toDateKey(new Date(h.createdAt)) <= date,
       );
       if (inCategory.length === 0) continue;
-      const progress = categoryProgress(category, inCategory, date, isDone);
+      const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
       if (progress.due.length === 0) continue;
       judged++;
       if (progress.goalMet) met++;
     }
 
-    if (judged === 0) continue; // nothing was due — a neutral day
+    // Nothing was due — either nothing was scheduled, or every category was
+    // excused as a sick day. Either way, a neutral day: it can't break or
+    // extend the streak.
+    if (judged === 0) continue;
     if (met === judged) {
       streak++;
     } else if (offset === 0) {

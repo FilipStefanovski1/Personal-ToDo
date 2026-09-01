@@ -57,6 +57,12 @@ interface StoreValue {
   toggleCompletion: (habitId: string, date: DateKey) => void;
   setCompletion: (habitId: string, date: DateKey, done: boolean) => void;
 
+  /** All marked sick days, for passing into the stats functions. */
+  sickDaySet: ReadonlySet<DateKey>;
+  isSickDay: (date: DateKey) => boolean;
+  setSickDay: (date: DateKey, sick: boolean) => void;
+  toggleSickDay: (date: DateKey) => void;
+
   addCategory: (input: NewCategoryInput) => Category;
   updateCategory: (id: string, patch: Partial<Omit<Category, "id">>) => void;
   /** Removes the category, its habits, and their history. */
@@ -91,6 +97,7 @@ const EMPTY_DATA: AppData = {
   categories: [],
   habits: [],
   completions: {},
+  sickDays: [],
   settings: { ...DEFAULT_SETTINGS },
 };
 
@@ -183,6 +190,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setCompletion(habitId, date, !isCompleted(habitId, date));
     },
     [isCompleted, setCompletion],
+  );
+
+  const sickDaySet = useMemo(() => new Set(data.sickDays), [data.sickDays]);
+
+  const isSickDay = useCallback((date: DateKey) => sickDaySet.has(date), [sickDaySet]);
+
+  const setSickDay = useCallback((date: DateKey, sick: boolean) => {
+    // Same guard rail as completions: the future can't have happened yet.
+    if (isFuture(date)) return;
+    setData((prev) => {
+      const has = prev.sickDays.includes(date);
+      if (has === sick) return prev;
+      return {
+        ...prev,
+        sickDays: sick
+          ? [...prev.sickDays, date].sort()
+          : prev.sickDays.filter((d) => d !== date),
+      };
+    });
+  }, []);
+
+  const toggleSickDay = useCallback(
+    (date: DateKey) => setSickDay(date, !isSickDay(date)),
+    [isSickDay, setSickDay],
   );
 
   const addCategory = useCallback((input: NewCategoryInput): Category => {
@@ -377,7 +408,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Wipes history but keeps the categories and items themselves. */
   const clearHistory = useCallback(() => {
-    setData((prev) => ({ ...prev, completions: {} }));
+    setData((prev) => ({ ...prev, completions: {}, sickDays: [] }));
   }, []);
 
   const categories = useMemo(
@@ -419,6 +450,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       completionsOn,
       toggleCompletion,
       setCompletion,
+      sickDaySet,
+      isSickDay,
+      setSickDay,
+      toggleSickDay,
       addCategory,
       updateCategory,
       deleteCategory,
@@ -440,6 +475,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [
       ready, data, categories, activeCategories, habits, activeHabits, habitsIn,
       isCompleted, completionsOn, toggleCompletion, setCompletion,
+      sickDaySet, isSickDay, setSickDay, toggleSickDay,
       addCategory, updateCategory, deleteCategory, setCategoryArchived, toggleCollapsed,
       moveCategory, reorderCategory,
       addHabit, updateHabit, deleteHabit, setArchived, moveHabit, reorderHabit,

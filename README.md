@@ -54,6 +54,22 @@ Goal type also drives the day streak on Today and the consistency figure on
 Year: one basketball session satisfies Activity, exactly as an "any" group is
 meant to work.
 
+## Feeling sick
+
+Every day, past or present, carries a plain red **Feeling sick** toggle above
+its checklist (Today and the Month view's day panel share the same component).
+Marking a day sick excuses every category's goal for that date — nothing is
+"due," so nothing can be missed. Streaks and consistency figures skip the day
+entirely rather than counting it as a failure, the same way they already skip
+a day nothing was scheduled on.
+
+It's an override on the *requirement*, not on the *record*: if you still take
+something despite being sick, that completion is stored and counted exactly as
+usual — the year grid still lights up for it, and raw totals still include it.
+Only the goal judgment for that date is waived, via a `sickDays: DateKey[]`
+list on `AppData` that every stats function threads through as an optional
+`ReadonlySet<DateKey>`, defaulting to empty so nothing beyond it changes.
+
 ## The screens
 
 - **Today** — the hero date, then a checklist grouped by category with derived
@@ -168,10 +184,10 @@ rather than showing a confident zero:
 
 Everything lives under the `habit-year:v1` localStorage key (the key name is
 kept for continuity; the schema inside is versioned separately and is now at
-v3). On a genuinely empty install the app seeds Supplements, Activity and Other
+v4). On a genuinely empty install the app seeds Supplements, Activity and Other
 with their items and **no history at all**. **Settings → Clear all history**
-resets every completion to zero while keeping the structure; **Reset everything**
-clears the lot.
+resets every completion and every sick-day marker to zero while keeping the
+structure; **Reset everything** clears the lot.
 
 Migrations run on load from storage — never on import, since restoring a backup
 is an explicit act and that history must survive untouched:
@@ -185,6 +201,8 @@ is an explicit act and that history must survive untouched:
   writing a contiguous block ending that day. So v3 drops everything dated
   before today and keeps today untouched — it may leave a few generated entries
   on the install day, but it can never delete a real one.
+- **v3 → v4** — added sick days. Purely additive: data without the field just
+  normalizes to an empty list, so no migration step is needed.
 
 Because localStorage is per-browser and can be cleared by the browser itself,
 **Settings → Export JSON** is the backup. Import accepts both the export bundle

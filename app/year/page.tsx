@@ -26,7 +26,8 @@ type Mode = "byHabit" | "combined";
 type Detail = "categories" | "items";
 
 export default function YearPage() {
-  const { ready, categories, activeCategories, habits, activeHabits, data, settings } = useStore();
+  const { ready, categories, activeCategories, habits, activeHabits, data, settings, sickDaySet } =
+    useStore();
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [mode, setMode] = useState<Mode>("byHabit");
   const [detail, setDetail] = useState<Detail>("categories");
@@ -44,8 +45,8 @@ export default function YearPage() {
   }, [habits, activeHabits, shownCategories, settings.showArchived]);
 
   const summary = useMemo(
-    () => computeYearSummary(shownCategories, shownHabits, data.completions, year),
-    [shownCategories, shownHabits, data.completions, year],
+    () => computeYearSummary(shownCategories, shownHabits, data.completions, year, sickDaySet),
+    [shownCategories, shownHabits, data.completions, year, sickDaySet],
   );
 
   const byCategory = useMemo(() => groupByCategory(shownHabits), [shownHabits]);
@@ -60,19 +61,20 @@ export default function YearPage() {
           category,
           byCategory.get(category.id) ?? [],
           data.completions,
+          sickDaySet,
           lookup,
         ),
       }))
       .filter((entry) => entry.habits.length > 0);
-  }, [shownCategories, byCategory, data.completions]);
+  }, [shownCategories, byCategory, data.completions, sickDaySet]);
 
   const habitStats = useMemo(() => {
     const lookup = makeCompletionLookup(data.completions);
     return shownHabits.map((habit) => ({
       habit,
-      stats: computeHabitStats(habit, data.completions, settings.weekStartsOn, lookup),
+      stats: computeHabitStats(habit, data.completions, settings.weekStartsOn, sickDaySet, lookup),
     }));
-  }, [shownHabits, data.completions, settings.weekStartsOn]);
+  }, [shownHabits, data.completions, settings.weekStartsOn, sickDaySet]);
 
   if (!ready) return <PageSkeleton />;
 

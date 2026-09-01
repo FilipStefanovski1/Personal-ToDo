@@ -3,6 +3,7 @@ import type {
   AppSettings,
   Category,
   CompletionMap,
+  DateKey,
   GoalType,
   Habit,
   HabitSchedule,
@@ -15,8 +16,10 @@ import { DEFAULT_COLOR, isValidHex } from "./colors";
  * v1 → v2 introduced categories; v1 habits migrate into a fallback group.
  * v2 → v3 removed the first-launch demo history generator; stored data from
  * earlier versions has its generated completions stripped on load.
+ * v3 → v4 added sick days; purely additive, so no migration step is needed —
+ * data without the field just normalizes to an empty list.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /** Category used for habits that arrive without one (v1 data, sloppy imports). */
 export const FALLBACK_CATEGORY_NAME = "Other";
@@ -114,6 +117,13 @@ export function normalizeCompletions(input: unknown, habitIds: Set<string>): Com
   return out;
 }
 
+/** Deduped, valid date keys only — bad entries are dropped, not fatal. */
+export function normalizeSickDays(input: unknown): DateKey[] {
+  if (!Array.isArray(input)) return [];
+  const valid = input.filter((v): v is DateKey => typeof v === "string" && isValidDateKey(v));
+  return [...new Set(valid)].sort();
+}
+
 function normalizeSettings(input: unknown): AppSettings {
   if (!input || typeof input !== "object") return { ...DEFAULT_SETTINGS };
   const raw = input as Record<string, unknown>;
@@ -188,6 +198,7 @@ export function normalizeAppData(input: unknown): AppData {
     categories: orderedCategories,
     habits: orderedHabits,
     completions: normalizeCompletions(raw.completions, habitIds),
+    sickDays: normalizeSickDays(raw.sickDays),
     settings: normalizeSettings(raw.settings),
   };
 }

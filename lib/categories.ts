@@ -33,14 +33,23 @@ export function goalTargetOn(category: Category, dueCount: number): number {
 /**
  * Category progress is always derived, never stored — the completion history
  * only ever holds individual habit ids.
+ *
+ * `isSick` excuses the whole category for the day: `due` becomes empty, so the
+ * goal is neither met nor missed — it's simply not judged. Every place that
+ * consumes this (streaks, consistency, the Today screen) already treats an
+ * empty `due` list as a neutral day, so a sick day costs nothing without
+ * needing special-case handling anywhere else.
  */
 export function categoryProgress(
   category: Category,
   habitsInCategory: Habit[],
   date: DateKey,
   isDone: (habitId: string, date: DateKey) => boolean,
+  isSick = false,
 ): CategoryProgress {
-  const due = habitsInCategory.filter((h) => !h.archived && isHabitDueOn(h, date));
+  const due = isSick
+    ? []
+    : habitsInCategory.filter((h) => !h.archived && isHabitDueOn(h, date));
   const completed = due.filter((h) => isDone(h.id, date));
   const target = goalTargetOn(category, due.length);
   return {
