@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 
 /**
@@ -7,9 +9,17 @@ import { Check } from "lucide-react";
  * goal is excused — nothing due, nothing missed, streaks untouched. Anything
  * actually logged that day still counts; this only waives the requirement.
  *
- * Deliberately not styled like a habit — no color picker, no emoji choice.
- * It's a single fixed switch, always red, so it reads as an exception rather
- * than another thing to track.
+ * Floats as a fixed pill in the bottom corner rather than sitting inline atop
+ * the checklist — it's an exception you reach for occasionally, not the first
+ * thing the list should be about. Sits above the mobile tab bar on small
+ * screens and drops to the corner once there's no tab bar to clear.
+ *
+ * Portaled to `document.body`: this button lives inside the page's
+ * `animate-rise` entrance wrapper, and that animation's `transform` (even
+ * once settled on its identity value) establishes a new containing block for
+ * `position: fixed` descendants — without the portal this pins itself to the
+ * bottom of that wrapper's box, not the viewport, and can end up rendered far
+ * below the fold on a tall page instead of staying docked on screen.
  */
 export function SickDayToggle({
   active,
@@ -18,59 +28,40 @@ export function SickDayToggle({
   active: boolean;
   onToggle: () => void;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <button
       type="button"
       onClick={onToggle}
       aria-pressed={active}
       aria-label={`Feeling sick, ${active ? "marked" : "not marked"}`}
       className={[
-        "flex w-full items-center gap-3.5 rounded-2xl border px-3.5 py-3 text-left",
-        "transition-all duration-200 active:scale-[0.99]",
+        "fixed z-40 flex items-center gap-2 rounded-full border pl-2.5 pr-4 py-2.5",
+        "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6",
+        "shadow-[0_6px_20px_rgba(0,0,0,0.16)] backdrop-blur-sm",
+        "transition-all duration-200 active:scale-[0.96]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5484D]",
         active
           ? "border-transparent bg-[#E5484D] text-white"
-          : "border-[#E5484D]/35 bg-[#E5484D]/6 hover:bg-[#E5484D]/10",
+          : "border-[#E5484D]/30 bg-surface/95 text-[#D3383D] hover:bg-[#E5484D]/8 dark:text-[#FF9592]",
       ].join(" ")}
     >
       <span
         aria-hidden
         className={[
-          "grid size-10 shrink-0 place-items-center rounded-xl text-[18px]",
-          active ? "bg-white/20" : "bg-[#E5484D]/14",
+          "grid size-6 shrink-0 place-items-center rounded-full text-[13px]",
+          active ? "bg-white/20" : "bg-[#E5484D]/12",
         ].join(" ")}
       >
-        🤒
+        {active ? <Check size={13} strokeWidth={3.2} className="text-white" /> : "🤒"}
       </span>
-
-      <span className="min-w-0 flex-1">
-        <span
-          className={[
-            "block text-[15px] font-semibold tracking-tight",
-            active ? "text-white" : "text-[#D3383D] dark:text-[#FF9592]",
-          ].join(" ")}
-        >
-          Feeling sick
-        </span>
-        <span
-          className={[
-            "mt-0.5 block text-[12.5px]",
-            active ? "text-white/80" : "text-[#D3383D]/70 dark:text-[#FF9592]/70",
-          ].join(" ")}
-        >
-          {active ? "Marked — nothing counted against you today" : "Excuse today, no questions asked"}
-        </span>
+      <span className="text-[13px] font-semibold tracking-tight">
+        {active ? "Marked sick" : "Feeling sick"}
       </span>
-
-      <span
-        aria-hidden
-        className={[
-          "grid size-7 shrink-0 place-items-center rounded-full transition-all duration-200",
-          active ? "bg-white" : "border-2 border-[#E5484D]/40",
-        ].join(" ")}
-      >
-        {active ? <Check size={16} strokeWidth={3.2} className="text-[#E5484D]" /> : null}
-      </span>
-    </button>
+    </button>,
+    document.body,
   );
 }
