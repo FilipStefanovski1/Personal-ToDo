@@ -13,6 +13,8 @@ import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { MonthSummary } from "@/components/calendar/MonthSummary";
 import { MonthJournal } from "@/components/calendar/MonthJournal";
 import { computeMonthSummary } from "@/lib/stats";
+import { LG_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
+import { DaySheet } from "@/components/habits/DaySheet";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { Card, SectionLabel } from "@/components/ui/Card";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -22,6 +24,12 @@ export default function MonthPage() {
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selected, setSelected] = useState(() => todayKey());
+  const [openDay, setOpenDay] = useState<string | null>(null);
+
+  // The side panel only exists at lg. Below it, picking a day has to open the
+  // sheet — otherwise tapping a note silently updates a panel a thousand
+  // pixels up the page and nothing appears to happen.
+  const hasSidePanel = useMediaQuery(LG_QUERY);
 
   const summary = useMemo(
     () =>
@@ -37,7 +45,15 @@ export default function MonthPage() {
     [activeCategories, activeHabits, data.completions, data.notes, sickDaySet, cursor],
   );
 
-  const selectDay = useCallback((date: string) => setSelected(date), []);
+  const selectDay = useCallback(
+    (date: string) => {
+      setSelected(date);
+      if (!hasSidePanel) setOpenDay(date);
+    },
+    [hasSidePanel],
+  );
+
+  const closeDay = useCallback(() => setOpenDay(null), []);
 
   if (!ready) return <PageSkeleton />;
 
@@ -109,11 +125,11 @@ export default function MonthPage() {
             year={cursor.year}
             month={cursor.month}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={selectDay}
           />
         </Card>
 
-        <Card className="p-5 lg:sticky lg:top-24">
+        <Card className="hidden p-5 lg:sticky lg:top-24 lg:block">
           <div className="mb-4">
             <SectionLabel>{isToday(selected) ? "Today" : "Selected day"}</SectionLabel>
             <p className="mt-1.5 text-[19px] font-bold tracking-[-0.02em]">
@@ -125,6 +141,8 @@ export default function MonthPage() {
       </div>
 
       <MonthJournal year={cursor.year} month={cursor.month} onSelectDay={selectDay} />
+
+      <DaySheet date={openDay} onClose={closeDay} onNavigate={setOpenDay} />
     </div>
   );
 }
