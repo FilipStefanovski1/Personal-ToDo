@@ -1,33 +1,43 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   MONTH_NAMES,
-  daysInMonthKeys,
   formatLongDate,
   isToday,
   todayKey,
 } from "@/lib/dates";
 import { MonthGrid } from "@/components/calendar/MonthGrid";
+import { MonthSummary } from "@/components/calendar/MonthSummary";
+import { MonthJournal } from "@/components/calendar/MonthJournal";
+import { computeMonthSummary } from "@/lib/stats";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { Card, SectionLabel } from "@/components/ui/Card";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function MonthPage() {
-  const { ready, completionsOn } = useStore();
+  const { ready, activeCategories, activeHabits, data, sickDaySet } = useStore();
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selected, setSelected] = useState(() => todayKey());
 
-  const monthTotal = useMemo(() => {
-    if (!ready) return 0;
-    return daysInMonthKeys(cursor.year, cursor.month).reduce(
-      (sum, date) => sum + completionsOn(date).length,
-      0,
-    );
-  }, [ready, cursor, completionsOn]);
+  const summary = useMemo(
+    () =>
+      computeMonthSummary(
+        activeCategories,
+        activeHabits,
+        data.completions,
+        data.notes,
+        sickDaySet,
+        cursor.year,
+        cursor.month,
+      ),
+    [activeCategories, activeHabits, data.completions, data.notes, sickDaySet, cursor],
+  );
+
+  const selectDay = useCallback((date: string) => setSelected(date), []);
 
   if (!ready) return <PageSkeleton />;
 
@@ -38,7 +48,23 @@ export default function MonthPage() {
     setCursor(({ year, month }) => {
       const next = new Date(year, month + delta, 1);
       if (next > new Date(now.getFullYear(), now.getMonth(), 1)) return { year, month };
-      return { year: next.getFullYear(), month: next.getMonth() };
+
+      // Carry the selected day across with it, so the panel keeps showing a
+      // day from the month you're actually looking at. Same day-of-month
+      // where it exists, clamped to the month's length and never the future.
+      const nextYear = next.getFullYear();
+      const nextMonth = next.getMonth();
+      setSelected((current) => {
+        const day = Number(current.slice(8, 10));
+        const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+        const isCurrentMonth =
+          nextYear === now.getFullYear() && nextMonth === now.getMonth();
+        const cap = isCurrentMonth ? now.getDate() : lastDay;
+        const target = Math.min(day, cap);
+        return `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-${String(target).padStart(2, "0")}`;
+      });
+
+      return { year: nextYear, month: nextMonth };
     });
   };
 
@@ -55,9 +81,6 @@ export default function MonthPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <p className="mr-2 text-[12.5px] tabular text-ink-muted">
-            {monthTotal} completion{monthTotal === 1 ? "" : "s"}
-          </p>
           <button
             type="button"
             onClick={() => step(-1)}
@@ -77,6 +100,8 @@ export default function MonthPage() {
           </button>
         </div>
       </header>
+
+      <MonthSummary summary={summary} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
         <Card className="p-4 md:p-5">
@@ -98,6 +123,8 @@ export default function MonthPage() {
           <DayChecklist date={selected} />
         </Card>
       </div>
+
+      <MonthJournal year={cursor.year} month={cursor.month} onSelectDay={selectDay} />
     </div>
   );
 }

@@ -473,3 +473,114 @@ export function computeOverallStreak(
   }
   return streak;
 }
+
+export interface MonthSummary {
+  /** Completions recorded across the month. */
+  totalCompletions: number;
+  /** Change against the same measure last month; null when there's no prior. */
+  completionsDelta: number | null;
+  /** Days with at least one completion. */
+  activeDays: number;
+  /** Days elapsed so far — the honest denominator for a month in progress. */
+  daysElapsed: number;
+  /** Days where every category that had something due met its goal. */
+  perfectDays: number;
+  /** The item logged most often this month. */
+  topHabitName: string | null;
+  topHabitCount: number;
+  noteCount: number;
+}
+
+/**
+ * A month's worth of honest numbers, each answering a different question:
+ * how much (completions), how often (active days), how well (perfect days),
+ * and what you actually leaned on (top item).
+ */
+export function computeMonthSummary(
+  categories: Category[],
+  habits: Habit[],
+  completions: CompletionMap,
+  notes: Record<DateKey, string>,
+  sickDays: ReadonlySet<DateKey>,
+  year: number,
+  month: number,
+): MonthSummary {
+  const isDone = makeCompletionLookup(completions);
+  const today = todayKey();
+  const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+  // A month in progress is measured against the days that have happened.
+  const isCurrentMonth = today.startsWith(prefix);
+  const monthLength = new Date(year, month + 1, 0).getDate();
+  const daysElapsed = isCurrentMonth ? Number(today.slice(8, 10)) : monthLength;
+
+  const habitById = new Map(habits.map((h) => [h.id, h]));
+  const perHabit = new Map<string, number>();
+  let totalCompletions = 0;
+  let activeDays = 0;
+  let noteCount = 0;
+
+  for (let day = 1; day <= daysElapsed; day++) {
+    const date = `${prefix}-${String(day).padStart(2, "0")}`;
+    const ids = (completions[date] ?? []).filter((id) => habitById.has(id));
+    if (ids.length > 0) {
+      activeDays++;
+      totalCompletions += ids.length;
+      for (const id of ids) perHabit.set(id, (perHabit.get(id) ?? 0) + 1);
+    }
+    if (notes[date]) noteCount++;
+  }
+
+  // Perfect day: every category with something due met its goal.
+  let perfectDays = 0;
+  for (let day = 1; day <= daysElapsed; day++) {
+    const date = `${prefix}-${String(day).padStart(2, "0")}`;
+    // Today is still in progress — judging it would report a false miss.
+    if (date === today) continue;
+    let judged = 0;
+    let met = 0;
+    for (const category of categories) {
+      const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
+      if (inCategory.length === 0) continue;
+      const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
+      if (progress.due.length === 0) continue;
+      judged++;
+      if (progress.goalMet) met++;
+    }
+    if (judged > 0 && judged === met) perfectDays++;
+  }
+
+  // Same-length window last month, so a partial month isn't compared against
+  // a whole one.
+  const previous = new Date(year, month - 1, 1);
+  const previousPrefix = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`;
+  const previousLength = new Date(previous.getFullYear(), previous.getMonth() + 1, 0).getDate();
+  let previousTotal = 0;
+  let previousHadAny = false;
+  for (let day = 1; day <= Math.min(daysElapsed, previousLength); day++) {
+    const date = `${previousPrefix}-${String(day).padStart(2, "0")}`;
+    const ids = (completions[date] ?? []).filter((id) => habitById.has(id));
+    if (ids.length > 0) previousHadAny = true;
+    previousTotal += ids.length;
+  }
+
+  let topHabitName: string | null = null;
+  let topHabitCount = 0;
+  for (const [habitId, count] of perHabit) {
+    if (count > topHabitCount) {
+      topHabitCount = count;
+      topHabitName = habitById.get(habitId)?.name ?? null;
+    }
+  }
+
+  return {
+    totalCompletions,
+    completionsDelta: previousHadAny ? totalCompletions - previousTotal : null,
+    activeDays,
+    daysElapsed,
+    perfectDays,
+    topHabitName,
+    topHabitCount,
+    noteCount,
+  };
+}
