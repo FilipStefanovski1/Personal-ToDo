@@ -3,6 +3,80 @@
 Short log of choices that aren't obvious from the code, so a future session
 doesn't re-litigate them. Newest first.
 
+## Goals reference data; they never own it
+
+A goal stores only a source, a target and a period. Progress, milestones,
+status and pace are recomputed from the completion history on every render.
+
+That single rule buys everything the sprint brief asked for. Editing 150 → 175
+can't corrupt anything, because there's nothing stored to corrupt. Deleting a
+goal is a one-line filter that provably can't touch a completion. Un-checking a
+day in March correctly rewinds every goal that counted it. And a goal created
+in September immediately shows January's sessions, because the records were
+always there — asking the user to backfill would be exactly the busywork the
+brief said to avoid.
+
+Milestones follow from the same rule. Storing "reached 100 on Sep 18" goes
+stale the moment an earlier day is corrected; walking the period's dates in
+order costs nothing and is always right. Thresholds are 25/50/75/100% of the
+target, deduped (a target of 2 doesn't emit four milestones).
+
+## Goal periods: year, custom range, ongoing — and deliberately not weekly
+
+Weekly and monthly *recurring* goals were considered and rejected. `timesPerWeek`
+habit schedules plus the Today week strip already answer "gym 3× a week", and a
+rolling goal would generate 52 separate results a year to store, display and
+reason about. A goal here is one named stretch of time with one result.
+
+`ongoing` has no end, so it reports no pace and no days remaining — null rather
+than zero, because "0 days left" on a lifetime goal is a lie.
+
+## Pace is a mark on the bar, not a number to parse
+
+The bar carries a tick at where a steady pace would put you today. Whether the
+fill has passed the tick answers "am I on track?" pre-attentively; the numbers
+underneath are for when you want detail. Pace is `target × elapsed / total`,
+which only makes sense for a bounded period — ongoing goals and periods that
+haven't started return null and render no tick.
+
+## Goal status is derived, and unfinished goals stay visible
+
+`completed` when the target was reached (with the date it happened),
+`ended` when the period closed short, `active` otherwise. An ended goal reads
+"Finished at 88%" — the brief was explicit that a personal history app
+shouldn't pretend unfinished goals didn't happen, and shouldn't call them
+failures either. Archiving hides a goal from the active list; it never deletes
+the record.
+
+A goal whose habit was deleted is kept and marked "detached" rather than
+silently dropped. Removing it stays the user's decision.
+
+## Today surfaces at most one goal, and only a fixable one
+
+Tone was the design constraint. A goal appears only when a single day would
+visibly change it: within 3 of the target, or within 3 of the pace. Anything
+further behind gets no line at all, because "28 sessions behind" on a Tuesday
+morning is not information. When the habit was already done today the copy
+congratulates instead of asking twice.
+
+## Milestones and moments are one list
+
+`Moment` is its own record (date + title + emoji), not a flag on a day note. A
+note is "what happened today", written often; a moment is rare, titled, and
+belongs to the year's story. Merging the models would mean every note carrying
+an is-this-important flag.
+
+But the *presentation* merges them. On the Year page, "Gym — 75 times · Jul 24"
+sits beside "Shipped Aminta v1 · Mar 14" in one chronological Highlights list.
+Keeping achievements in a separate panel would make them feel like analytics;
+interleaved, they read as things that happened, which is the archive the app is
+building toward.
+
+## "Clear all history" keeps goals, drops moments
+
+Goals are structure — they survive a wipe and simply recompute to zero. Moments
+are records of things that happened, so they go with the history.
+
 ## Display vs judgement are separate concerns
 
 `CategoryProgress` carries both `due` (what the checklist shows) and
@@ -68,7 +142,7 @@ reliable was the shape (one contiguous block ending at install). It drops
 everything before today and keeps today — it can leave a few generated entries
 on the install day but can never delete a real one.
 
-Schema is at v6. Every bump so far has been purely additive.
+Schema is at v7. Every bump so far has been purely additive.
 
 ## Tests
 

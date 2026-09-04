@@ -33,6 +33,37 @@ Import the repository on Vercel and deploy. It's a stock Next.js App Router
 project: framework auto-detects, no build settings to change, and no environment
 variables to set.
 
+## Goals
+
+A goal is a thing, a number and a stretch of time — "Gym 150 times this year".
+Everything else is derived from the records you already keep, so setting a goal
+in September immediately shows the sessions you did in January. There is
+nothing to keep up to date by hand.
+
+The progress bar carries a **pace marker**: a tick at where a steady pace would
+put you today. Whether the fill has passed the tick answers "am I on track?"
+before you read a number.
+
+Goals can count a habit (days it was completed) or a category (days it had any
+completion), over this year, a date range, or an ongoing stretch with no end.
+Targets pre-fill from the habit's own schedule — a 3×/week habit suggests 156
+for a year.
+
+Milestones at a quarter, half and three quarters appear automatically with the
+date each was crossed. A goal that reaches its target records the day; one
+whose period ends short reads "Finished at 88%" and stays in the record, because
+a history app shouldn't pretend unfinished goals didn't happen.
+
+Goals reference data and never own it: deleting a goal cannot touch a single
+completion, and editing a target only re-derives the numbers.
+
+## Moments
+
+Days can carry a marked moment — "Shipped Aminta v1", "Ran my first 10K". On the
+Year page these interleave with goal milestones into one chronological
+**Highlights** list, so achievements read as things that happened rather than as
+analytics.
+
 ## Notes and variants
 
 Any day takes an optional short note — "squat PR", "Solana meetup". Completions
@@ -108,11 +139,16 @@ list on `AppData` that every stats function threads through as an optional
     carry a note. Clicking any cell opens that whole day.
   - **Combined** — a 53×7 week grid where days with several completed items
     split into flat colour bands.
+
+  Below the grid: goal progress, the year's Highlights, and personal bests —
+  each habit's strongest month and the busiest week of the year.
 - **Habits** — create categories and the items inside them. Rename, re-icon,
   recolour, archive, delete, change the schedule, change the group goal, define
   optional variants (Gym → Push / Pull / Legs), and reorder both levels by
   drag-and-drop (with arrow buttons alongside, since dragging isn't available
   on touch).
+- **Goals** — set and inspect targets, see milestones with the dates they were
+  crossed, archive finished ones.
 - **Settings** — theme, week start, cell size, archived visibility, and JSON
   export / import / reset.
 
@@ -125,16 +161,19 @@ noise. A hex field is there for anything specific.
 ## Architecture
 
 ```
-app/                     routes: today (/), month, year, habits, settings
+app/                     routes: today (/), month, year, goals, habits, settings
 components/
   habits/                checklist rows, category sections, editors, stats
+  goals/                 goal row, editor, Today nudge
+  moments/               moment editor and the day's moments
   calendar/              month grid, month summary and journal
   year-grid/             the two year layouts + their geometry
   ui/                    Card, Button, Segmented, Switch, tooltip, …
 lib/
   dates.ts               local-timezone date keys (see below)
   schedule.ts            what's due when
-  categories.ts          goal evaluation and derived category progress
+  categories.ts          category goal evaluation and derived progress
+  goals.ts               goal progress, pace, milestones, year highlights
   stats.ts               streaks, rates, category/week/month/year summaries
   normalize.ts           validates any untrusted data into AppData
   migrations.ts          schema upgrades, applied on load only
