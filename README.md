@@ -146,7 +146,10 @@ list on `AppData` that every stats function threads through as an optional
     split into flat colour bands.
 
   Below the grid: goal progress, the year's Highlights, and personal bests —
-  each habit's strongest month and the busiest week of the year.
+  the busiest week of the year, plus each habit's strongest month where there
+  genuinely was one. A month has to beat the runner-up outright to count, and
+  the list ranks by that margin, so a real spike outranks a daily supplement's
+  fourth perfect month.
 - **Habits** — create categories and the items inside them. Rename, re-icon,
   recolour, archive, delete, change the schedule, change the group goal, define
   optional variants (Gym → Push / Pull / Legs), and reorder both levels by

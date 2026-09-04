@@ -3,6 +3,19 @@
 Short log of choices that aren't obvious from the code, so a future session
 doesn't re-litigate them. Newest first.
 
+## A personal best has to stand apart from the rest of the year
+
+The Year page's bests were listing "Vitamin B — best month · 31 in August"
+above the habits that actually spiked. A daily supplement hits 31 in every
+long month, so the "best" was a tie broken arbitrarily, and the section read as
+analytics rather than as achievements.
+
+A month now qualifies only when it is strictly above the runner-up month, and
+the list ranks by that **margin** rather than by raw count. Gym peaking at 14
+in July against a quiet spring is a record; a vitamin's fourth perfect month
+is not. Habits with data in only one month are still excluded, for the same
+reason best-month comparisons need two months everywhere else in the app.
+
 ## A goal landing is acknowledged for exactly one day
 
 Reaching a target used to be a number quietly ticking over. Today now shows a

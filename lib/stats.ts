@@ -824,25 +824,51 @@ export function computeYearRecords(
     }
   }
 
-  const habitBests: PersonalRecord[] = [];
+  /**
+   * A month only counts as a personal best if it actually stands apart.
+   *
+   * A daily supplement hits 31 in every long month; calling one of those "your
+   * best month" picks a winner out of a tie and reads as analytics, which is
+   * the opposite of what this section is for. So the peak must be strictly
+   * above the runner-up, and the list ranks by that margin — the habits that
+   * genuinely spiked lead, not the ones with the largest raw totals.
+   */
+  const ranked: { record: PersonalRecord; margin: number }[] = [];
   for (const [habitId, months] of perHabitMonth) {
     const habit = habitById.get(habitId);
     if (!habit) continue;
+
+    const withData = months.filter((n) => n > 0);
+    // Naming a best out of a single month compares nothing.
+    if (withData.length < 2) continue;
+
     let bestMonth = 0;
     for (let i = 1; i < 12; i++) if (months[i] > months[bestMonth]) bestMonth = i;
     const value = months[bestMonth];
     // One good day isn't a record.
     if (value < 3) continue;
-    habitBests.push({
-      subject: habit.name,
-      color: habit.color,
-      detail: `${value} in ${MONTH_NAMES_FULL[bestMonth]}`,
-      value,
+
+    const runnerUp = withData.sort((a, b) => b - a)[1];
+    if (value <= runnerUp) continue; // a tie has no peak to point at
+
+    ranked.push({
+      margin: value - runnerUp,
+      record: {
+        subject: habit.name,
+        color: habit.color,
+        detail: `${value} in ${MONTH_NAMES_FULL[bestMonth]}`,
+        value,
+      },
     });
   }
 
-  habitBests.sort((a, b) => b.value - a.value || a.subject.localeCompare(b.subject));
-  return { busiestWeek, habitBests };
+  ranked.sort(
+    (a, b) =>
+      b.margin - a.margin ||
+      b.record.value - a.record.value ||
+      a.record.subject.localeCompare(b.record.subject),
+  );
+  return { busiestWeek, habitBests: ranked.map((r) => r.record) };
 }
 
 const MONTH_NAMES_FULL = [

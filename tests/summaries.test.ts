@@ -212,6 +212,39 @@ test("a habit's best month is the month it actually peaked", () => {
   assert.equal(habitBests[0].detail, "6 in March");
 });
 
+test("a tied peak is not a personal best", () => {
+  // A daily habit that hit the same count in two months has no month that
+  // stands apart, so claiming one would be picking a winner out of a tie.
+  const completions: Record<string, string[]> = {};
+  for (let d = 1; d <= 5; d++) completions[`2026-01-0${d}`] = ["a"];
+  for (let d = 1; d <= 5; d++) completions[`2026-03-0${d}`] = ["a"];
+
+  const { habitBests } = computeYearRecords([habit("a")], completions, 2026, 1);
+  assert.equal(habitBests.length, 0);
+});
+
+test("bests rank by how far the peak stands above the runner-up", () => {
+  const completions: Record<string, string[]> = {};
+  // "a" peaks at 9 against a 7 runner-up (margin 2).
+  for (let d = 1; d <= 9; d++) completions[`2026-01-0${d}`] = ["a"];
+  for (let d = 1; d <= 7; d++) (completions[`2026-02-0${d}`] ??= []).push("a");
+  // "b" peaks lower at 6, but against a 3 runner-up (margin 3).
+  for (let d = 1; d <= 6; d++) (completions[`2026-01-0${d}`] ??= []).push("b");
+  for (let d = 1; d <= 3; d++) (completions[`2026-02-0${d}`] ??= []).push("b");
+
+  const { habitBests } = computeYearRecords(
+    [{ ...habit("a"), name: "A" }, { ...habit("b"), name: "B" }],
+    completions,
+    2026,
+    1,
+  );
+  assert.deepEqual(
+    habitBests.map((r) => r.subject),
+    ["B", "A"],
+    "the bigger spike leads, not the bigger total",
+  );
+});
+
 test("a habit with barely any data reports no record", () => {
   // Two completions is not a personal best worth announcing.
   const { habitBests } = computeYearRecords(
