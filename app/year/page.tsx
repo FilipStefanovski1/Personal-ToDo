@@ -7,6 +7,7 @@ import { useStore } from "@/lib/store";
 import {
   computeCategoryStats,
   computeHabitStats,
+  computeYearRecords,
   computeYearSummary,
   makeCompletionLookup,
 } from "@/lib/stats";
@@ -19,6 +20,7 @@ import {
   sortGoalsForDisplay,
 } from "@/lib/goals";
 import { DEFAULT_COLOR } from "@/lib/colors";
+import { formatShortDate } from "@/lib/dates";
 import { GoalRow } from "@/components/goals/GoalRow";
 import { YearTimeline } from "@/components/year-grid/YearTimeline";
 import { YearByHabit } from "@/components/year-grid/YearByHabit";
@@ -113,6 +115,11 @@ export default function YearPage() {
     () =>
       collectYearHighlights(year, goalProgress, moments, habits, categories, DEFAULT_COLOR),
     [year, goalProgress, moments, habits, categories],
+  );
+
+  const records = useMemo(
+    () => computeYearRecords(shownHabits, data.completions, year, settings.weekStartsOn),
+    [shownHabits, data.completions, year, settings.weekStartsOn],
   );
 
   const habitStats = useMemo(() => {
@@ -231,7 +238,7 @@ export default function YearPage() {
                 </Link>
               </div>
               <Card className="divide-y divide-line overflow-hidden">
-                {yearGoals.slice(0, 4).map((progress) => (
+                {yearGoals.slice(0, 6).map((progress) => (
                   <GoalRow
                     key={progress.goal.id}
                     progress={progress}
@@ -266,6 +273,37 @@ export default function YearPage() {
                     : `Show all ${highlights.length}`}
                 </button>
               ) : null}
+            </section>
+          ) : null}
+
+          {records.habitBests.length > 0 ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionLabel>Personal bests</SectionLabel>
+                {records.busiestWeek ? (
+                  <p className="text-[12px] text-ink-muted">
+                    Busiest week: {records.busiestWeek.count} · week of{" "}
+                    {formatShortDate(records.busiestWeek.startDate)}
+                  </p>
+                ) : null}
+              </div>
+              <Card className="divide-y divide-line overflow-hidden">
+                {records.habitBests.slice(0, 6).map((record) => (
+                  <div key={record.subject} className="flex items-center gap-3 px-4 py-2.5">
+                    <span
+                      aria-hidden
+                      className="size-2.5 shrink-0 rounded-[3px]"
+                      style={{ background: record.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium tracking-tight">
+                      {record.subject}
+                    </span>
+                    <span className="shrink-0 text-[12.5px] text-ink-muted">
+                      best month · <span className="font-semibold text-ink-soft">{record.detail}</span>
+                    </span>
+                  </div>
+                ))}
+              </Card>
             </section>
           ) : null}
 

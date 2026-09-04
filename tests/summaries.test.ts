@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import type { Category, Habit } from "@/types";
-import { computeMonthSummary, computeWeekSummary } from "@/lib/stats";
+import { computeMonthSummary, computeWeekSummary, computeYearRecords } from "@/lib/stats";
 import { shiftKey, startOfWeek, todayKey } from "@/lib/dates";
 
 /**
@@ -192,4 +192,58 @@ test("completions of deleted habits are ignored by both roll-ups", () => {
     0,
   );
   assert.equal(month.totalCompletions, 1, "only the habit that still exists");
+});
+
+// --- personal records ------------------------------------------------------
+
+test("a habit's best month is the month it actually peaked", () => {
+  const completions: Record<string, string[]> = {};
+  // 3 in January, 6 in March.
+  for (let d = 1; d <= 3; d++) completions[`2026-01-0${d}`] = ["a"];
+  for (let d = 1; d <= 6; d++) completions[`2026-03-0${d}`] = ["a"];
+
+  const { habitBests } = computeYearRecords(
+    [{ ...habit("a"), name: "Gym" }],
+    completions,
+    2026,
+    1,
+  );
+  assert.equal(habitBests.length, 1);
+  assert.equal(habitBests[0].detail, "6 in March");
+});
+
+test("a habit with barely any data reports no record", () => {
+  // Two completions is not a personal best worth announcing.
+  const { habitBests } = computeYearRecords(
+    [habit("a")],
+    { "2026-01-01": ["a"], "2026-01-02": ["a"] },
+    2026,
+    1,
+  );
+  assert.equal(habitBests.length, 0);
+});
+
+test("records ignore other years and deleted habits", () => {
+  const completions = {
+    "2025-03-01": ["a"], "2025-03-02": ["a"], "2025-03-03": ["a"],
+    "2026-04-01": ["ghost"], "2026-04-02": ["ghost"], "2026-04-03": ["ghost"],
+  };
+  const { habitBests, busiestWeek } = computeYearRecords([habit("a")], completions, 2026, 1);
+  assert.equal(habitBests.length, 0, "2025 is a different year; ghost no longer exists");
+  assert.equal(busiestWeek, null);
+});
+
+test("the busiest week is found by week, not by calendar month", () => {
+  const completions: Record<string, string[]> = {
+    // Week of Mon 2026-03-02: four days, two habits each.
+    "2026-03-02": ["a", "b"],
+    "2026-03-03": ["a", "b"],
+    "2026-03-04": ["a", "b"],
+    "2026-03-05": ["a", "b"],
+    // A quieter week.
+    "2026-03-09": ["a"],
+  };
+  const { busiestWeek } = computeYearRecords([habit("a"), habit("b")], completions, 2026, 1);
+  assert.equal(busiestWeek?.count, 8);
+  assert.equal(busiestWeek?.startDate, "2026-03-02");
 });

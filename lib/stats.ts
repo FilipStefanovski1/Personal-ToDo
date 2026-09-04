@@ -762,3 +762,90 @@ export function computeWeekSummary(
     topHabitCount,
   };
 }
+
+export interface PersonalRecord {
+  /** What the record is about — a habit name, or "Any day". */
+  subject: string;
+  color: string;
+  /** The achievement, e.g. "14 in March". */
+  detail: string;
+  value: number;
+}
+
+export interface YearRecords {
+  /** The single busiest week, as "52 completions · week of 9 Mar". */
+  busiestWeek: { count: number; startDate: DateKey } | null;
+  /** Each habit's best month, strongest first. */
+  habitBests: PersonalRecord[];
+}
+
+/**
+ * Records that read as achievements rather than analytics.
+ *
+ * The bar for inclusion is whether you'd tell someone about it. "Gym — 14 in
+ * March" passes; "average completions per weekday" does not. Anything already
+ * shown elsewhere on the page (longest streak, best month) is deliberately
+ * not repeated here.
+ */
+export function computeYearRecords(
+  habits: Habit[],
+  completions: CompletionMap,
+  year: number,
+  weekStartsOn: 0 | 1,
+): YearRecords {
+  const prefix = String(year);
+  const habitById = new Map(habits.map((h) => [h.id, h]));
+
+  // Busiest week, keyed by the week's first day.
+  const weekTotals = new Map<DateKey, number>();
+  for (const [date, ids] of Object.entries(completions)) {
+    if (!date.startsWith(prefix)) continue;
+    const relevant = ids.filter((id) => habitById.has(id)).length;
+    if (relevant === 0) continue;
+    const week = startOfWeek(date, weekStartsOn);
+    weekTotals.set(week, (weekTotals.get(week) ?? 0) + relevant);
+  }
+
+  let busiestWeek: YearRecords["busiestWeek"] = null;
+  for (const [startDate, count] of weekTotals) {
+    if (!busiestWeek || count > busiestWeek.count) busiestWeek = { count, startDate };
+  }
+
+  // Each habit's strongest month.
+  const perHabitMonth = new Map<string, number[]>();
+  for (const [date, ids] of Object.entries(completions)) {
+    if (!date.startsWith(prefix)) continue;
+    const month = Number(date.slice(5, 7)) - 1;
+    for (const id of ids) {
+      if (!habitById.has(id)) continue;
+      const months = perHabitMonth.get(id) ?? new Array(12).fill(0);
+      months[month] += 1;
+      perHabitMonth.set(id, months);
+    }
+  }
+
+  const habitBests: PersonalRecord[] = [];
+  for (const [habitId, months] of perHabitMonth) {
+    const habit = habitById.get(habitId);
+    if (!habit) continue;
+    let bestMonth = 0;
+    for (let i = 1; i < 12; i++) if (months[i] > months[bestMonth]) bestMonth = i;
+    const value = months[bestMonth];
+    // One good day isn't a record.
+    if (value < 3) continue;
+    habitBests.push({
+      subject: habit.name,
+      color: habit.color,
+      detail: `${value} in ${MONTH_NAMES_FULL[bestMonth]}`,
+      value,
+    });
+  }
+
+  habitBests.sort((a, b) => b.value - a.value || a.subject.localeCompare(b.subject));
+  return { busiestWeek, habitBests };
+}
+
+const MONTH_NAMES_FULL = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
