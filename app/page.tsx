@@ -12,6 +12,9 @@ import {
   todayKey,
 } from "@/lib/dates";
 import { computeOverallStreak, computeWeekSummary } from "@/lib/stats";
+import { computeGoalProgress, goalColor, goalLabel, nudgeLabel } from "@/lib/goals";
+import { DEFAULT_COLOR } from "@/lib/colors";
+import { TodayGoalNudge } from "@/components/goals/TodayGoalNudge";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { RecentDaysStrip } from "@/components/habits/RecentDaysStrip";
 import { WeekSummary } from "@/components/habits/WeekSummary";
@@ -20,8 +23,19 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function TodayPage() {
-  const { ready, activeCategories, activeHabits, data, settings, completionsOn, sickDaySet } =
-    useStore();
+  const {
+    ready,
+    activeCategories,
+    activeHabits,
+    habits,
+    categories,
+    data,
+    settings,
+    completionsOn,
+    sickDaySet,
+    activeGoals,
+    isCompleted,
+  } = useStore();
   const [selected, setSelected] = useState(() => todayKey());
 
   const streak = useMemo(
@@ -43,6 +57,37 @@ export default function TodayPage() {
       ),
     [activeCategories, activeHabits, data.completions, sickDaySet, settings.weekStartsOn],
   );
+
+  /**
+   * At most one goal surfaces on Today, chosen as the one a single day would
+   * most change: nearly finished first, then closest to slipping off pace.
+   */
+  const focusGoal = useMemo(() => {
+    const today = todayKey();
+    const candidates = activeGoals
+      .map((goal) => computeGoalProgress(goal, data.completions, habits))
+      .filter((p) => p.status === "active");
+
+    const nearlyDone = candidates
+      .filter((p) => p.target - p.current > 0 && p.target - p.current <= 3)
+      .sort((a, b) => a.target - a.current - (b.target - b.current))[0];
+    if (nearlyDone) return nearlyDone;
+
+    const fixableToday = candidates
+      .filter((p) => nudgeLabel(p) !== null)
+      .sort((a, b) => (a.paceDelta ?? 0) - (b.paceDelta ?? 0))[0];
+    if (!fixableToday) return null;
+
+    // Whether the thing behind this goal was already done today, so the copy
+    // can congratulate rather than ask twice.
+    const source = fixableToday.goal.source;
+    const doneToday =
+      source.type === "habit"
+        ? isCompleted(source.habitId, today)
+        : habits.some((h) => h.categoryId === source.categoryId && isCompleted(h.id, today));
+
+    return Object.assign(fixableToday, { doneToday });
+  }, [activeGoals, data.completions, habits, isCompleted]);
 
   const yearCount = useMemo(() => {
     const year = String(new Date().getFullYear());
@@ -107,6 +152,15 @@ export default function TodayPage() {
 
       {activeHabits.length > 0 ? (
         <WeekSummary summary={week} onSelectDay={setSelected} />
+      ) : null}
+
+      {focusGoal ? (
+        <TodayGoalNudge
+          progress={focusGoal}
+          label={goalLabel(focusGoal.goal, habits, categories)}
+          color={goalColor(focusGoal.goal.source, habits, DEFAULT_COLOR)}
+          doneToday={(focusGoal as { doneToday?: boolean }).doneToday ?? false}
+        />
       ) : null}
 
       {activeHabits.length > 0 ? (

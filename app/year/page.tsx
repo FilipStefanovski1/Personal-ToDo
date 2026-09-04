@@ -11,6 +11,16 @@ import {
   makeCompletionLookup,
 } from "@/lib/stats";
 import { groupByCategory } from "@/lib/categories";
+import {
+  collectYearHighlights,
+  computeGoalProgress,
+  goalColor,
+  goalLabel,
+  sortGoalsForDisplay,
+} from "@/lib/goals";
+import { DEFAULT_COLOR } from "@/lib/colors";
+import { GoalRow } from "@/components/goals/GoalRow";
+import { YearTimeline } from "@/components/year-grid/YearTimeline";
 import { YearByHabit } from "@/components/year-grid/YearByHabit";
 import { YearCombined } from "@/components/year-grid/YearCombined";
 import { YearStats } from "@/components/year-grid/YearStats";
@@ -27,12 +37,24 @@ type Mode = "byHabit" | "combined";
 type Detail = "categories" | "items";
 
 export default function YearPage() {
-  const { ready, categories, activeCategories, habits, activeHabits, data, settings, sickDaySet } =
-    useStore();
+  const {
+    ready,
+    categories,
+    activeCategories,
+    habits,
+    activeHabits,
+    data,
+    settings,
+    sickDaySet,
+    goals,
+    activeGoals,
+    moments,
+  } = useStore();
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [mode, setMode] = useState<Mode>("byHabit");
   const [detail, setDetail] = useState<Detail>("categories");
   const [openDay, setOpenDay] = useState<string | null>(null);
+  const [showAllHighlights, setShowAllHighlights] = useState(false);
 
   const closeDay = useCallback(() => setOpenDay(null), []);
 
@@ -71,6 +93,27 @@ export default function YearPage() {
       }))
       .filter((entry) => entry.habits.length > 0);
   }, [shownCategories, byCategory, data.completions, sickDaySet]);
+
+  /** Every goal's progress, and the subset worth showing beside the grid. */
+  const goalProgress = useMemo(
+    () => goals.map((goal) => computeGoalProgress(goal, data.completions, habits)),
+    [goals, data.completions, habits],
+  );
+
+  const yearGoals = useMemo(() => {
+    const activeIds = new Set(activeGoals.map((g) => g.id));
+    return sortGoalsForDisplay(
+      goalProgress.filter(
+        (p) => activeIds.has(p.goal.id) && p.from.startsWith(String(year)),
+      ),
+    );
+  }, [goalProgress, activeGoals, year]);
+
+  const highlights = useMemo(
+    () =>
+      collectYearHighlights(year, goalProgress, moments, habits, categories, DEFAULT_COLOR),
+    [year, goalProgress, moments, habits, categories],
+  );
 
   const habitStats = useMemo(() => {
     const lookup = makeCompletionLookup(data.completions);
@@ -175,6 +218,56 @@ export default function YearPage() {
               <YearCombined year={year} habits={shownHabits} onSelectDay={setOpenDay} />
             )}
           </Card>
+
+          {yearGoals.length > 0 ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionLabel>Goals</SectionLabel>
+                <Link
+                  href="/goals"
+                  className="text-[12.5px] font-medium text-ink-muted transition-colors hover:text-ink"
+                >
+                  All goals ›
+                </Link>
+              </div>
+              <Card className="divide-y divide-line overflow-hidden">
+                {yearGoals.slice(0, 4).map((progress) => (
+                  <GoalRow
+                    key={progress.goal.id}
+                    progress={progress}
+                    label={goalLabel(progress.goal, habits, categories)}
+                    color={goalColor(progress.goal.source, habits, DEFAULT_COLOR)}
+                  />
+                ))}
+              </Card>
+            </section>
+          ) : null}
+
+          {highlights.length > 0 ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <SectionLabel>Highlights</SectionLabel>
+                <p className="text-[12px] text-ink-muted">
+                  {highlights.length} this year
+                </p>
+              </div>
+              <YearTimeline
+                highlights={showAllHighlights ? highlights : highlights.slice(0, 8)}
+                onSelectDay={setOpenDay}
+              />
+              {highlights.length > 8 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllHighlights((v) => !v)}
+                  className="text-[12.5px] font-medium text-ink-muted transition-colors hover:text-ink"
+                >
+                  {showAllHighlights
+                    ? "Show fewer"
+                    : `Show all ${highlights.length}`}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">

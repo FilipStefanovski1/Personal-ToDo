@@ -9,6 +9,7 @@ import type {
   GoalSource,
   GoalStatus,
   Habit,
+  Moment,
 } from "@/types";
 import { daysBetween, shiftKey, todayKey } from "./dates";
 
@@ -256,4 +257,128 @@ export function sortGoalsForDisplay(entries: GoalProgress[]): GoalProgress[] {
     if (byStatus !== 0) return byStatus;
     return b.percent - a.percent;
   });
+}
+
+/**
+ * One line in the year's story — a milestone crossed or a moment marked.
+ *
+ * Goal milestones and hand-marked moments are merged deliberately. "Reached
+ * 75 gym sessions · Jul 24" and "Shipped Aminta v1 · Mar 3" are the same kind
+ * of thing when you're looking back at a year: things that happened, on days.
+ * Keeping them in separate lists would make the achievements feel like
+ * analytics rather than part of the record.
+ */
+export interface YearHighlight {
+  key: string;
+  date: DateKey;
+  kind: "milestone" | "moment";
+  title: string;
+  /** Emoji for moments; milestones carry a colour dot instead. */
+  emoji?: string;
+  color?: string;
+}
+
+export function collectYearHighlights(
+  year: number,
+  goalProgress: GoalProgress[],
+  moments: Moment[],
+  habits: Habit[],
+  categories: Category[],
+  fallbackColor: string,
+): YearHighlight[] {
+  const prefix = String(year);
+  const out: YearHighlight[] = [];
+
+  for (const progress of goalProgress) {
+    const noun = progress.goal.source.type === "category" ? "days" : "times";
+    const name = goalSourceName(progress.goal.source, habits, categories);
+    const color = goalColor(progress.goal.source, habits, fallbackColor);
+
+    for (const milestone of progress.milestones) {
+      if (!milestone.date.startsWith(prefix)) continue;
+      // The final one is the goal itself landing, which deserves its own words.
+      out.push({
+        key: `${progress.goal.id}:${milestone.value}`,
+        date: milestone.date,
+        kind: "milestone",
+        // Name first: the list is scanned down the left edge, and "Gym — 75
+        // times" reads as a thing that happened where "75 times of Gym" reads
+        // as a database row.
+        title: milestone.isTarget
+          ? `${name} goal reached — ${milestone.value} ${noun}`
+          : `${name} — ${milestone.value} ${noun}`,
+        color,
+      });
+    }
+  }
+
+  for (const moment of moments) {
+    if (!moment.date.startsWith(prefix)) continue;
+    out.push({
+      key: moment.id,
+      date: moment.date,
+      kind: "moment",
+      title: moment.title,
+      emoji: moment.emoji,
+    });
+  }
+
+  // Newest first: mid-year the recent entries are the ones you're looking for.
+  return out.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
+}
+
+/** What a goal gained during one month, for the month's recap. */
+export interface GoalMonthDelta {
+  goalId: string;
+  name: string;
+  color: string;
+  gained: number;
+  noun: string;
+}
+
+/**
+ * How much each goal moved during a given month.
+ *
+ * Month already answers "what happened"; this makes goals part of that answer
+ * without repeating the Goals screen — you see the month's contribution, not
+ * the running total.
+ */
+export function goalDeltasForMonth(
+  goals: Goal[],
+  completions: CompletionMap,
+  habits: Habit[],
+  categories: Category[],
+  year: number,
+  month: number,
+  fallbackColor: string,
+): GoalMonthDelta[] {
+  const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+  const habitsByCategory = new Map<string, Set<string>>();
+  for (const habit of habits) {
+    const set = habitsByCategory.get(habit.categoryId) ?? new Set<string>();
+    set.add(habit.id);
+    habitsByCategory.set(habit.categoryId, set);
+  }
+
+  const out: GoalMonthDelta[] = [];
+  for (const goal of goals) {
+    const { from, to } = periodRange(goal.period);
+    let gained = 0;
+    for (const [date, ids] of Object.entries(completions)) {
+      if (!date.startsWith(prefix)) continue;
+      // Only days that also fall inside the goal's own period count.
+      if (date < from || (to !== null && date > to)) continue;
+      if (dayCounts(goal.source, ids, habitsByCategory)) gained++;
+    }
+    if (gained === 0) continue;
+    out.push({
+      goalId: goal.id,
+      name: goalSourceName(goal.source, habits, categories),
+      color: goalColor(goal.source, habits, fallbackColor),
+      gained,
+      noun: goal.source.type === "category" ? "days" : "times",
+    });
+  }
+  return out.sort((a, b) => b.gained - a.gained);
 }

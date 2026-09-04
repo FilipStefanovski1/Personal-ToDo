@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import type { Category, CompletionMap, Goal, Habit } from "@/types";
 import {
+  collectYearHighlights,
   computeGoalProgress,
+  goalDeltasForMonth,
   goalLabel,
   goalSourceExists,
   nudgeLabel,
@@ -364,4 +366,147 @@ test("moments need a real date and a title", () => {
   assert.equal(moments.length, 1);
   assert.equal(moments[0].title, "Shipped v1");
   assert.equal(moments[0].emoji, "🚀");
+});
+
+// --- year boundaries -------------------------------------------------------
+
+test("Dec 31 and Jan 1 land in the years they belong to", () => {
+  const completions: CompletionMap = {
+    "2025-12-31": ["gym"],
+    "2026-01-01": ["gym"],
+    "2026-12-31": ["gym"],
+    "2027-01-01": ["gym"],
+  };
+  const y2026 = computeGoalProgress(goal(), completions, [habit("gym")], "2027-06-01");
+  const y2025 = computeGoalProgress(
+    goal({ period: { type: "year", year: 2025 } }),
+    completions,
+    [habit("gym")],
+    "2027-06-01",
+  );
+  assert.equal(y2026.current, 2, "Jan 1 and Dec 31 of 2026");
+  assert.equal(y2025.current, 1, "only Dec 31 of 2025");
+});
+
+test("a custom range includes both of its endpoints", () => {
+  const completions: CompletionMap = {
+    "2026-02-28": ["gym"], // before
+    "2026-03-01": ["gym"], // first day
+    "2026-03-31": ["gym"], // last day
+    "2026-04-01": ["gym"], // after
+  };
+  const progress = computeGoalProgress(
+    goal({ period: { type: "custom", from: "2026-03-01", to: "2026-03-31" } }),
+    completions,
+    [habit("gym")],
+    "2026-06-01",
+  );
+  assert.equal(progress.current, 2);
+  assert.equal(progress.daysTotal, 31);
+});
+
+test("a goal created mid-period still counts the whole period", () => {
+  // Created in September; the January sessions are already on the record and
+  // should be counted rather than asked for again.
+  const created = goal({ createdAt: "2026-09-01T00:00:00.000Z" });
+  const progress = computeGoalProgress(
+    created,
+    run("gym", "2026-01-01", 30),
+    [habit("gym")],
+    "2026-09-04",
+  );
+  assert.equal(progress.current, 30);
+});
+
+test("an ongoing goal counts from its start date, not before", () => {
+  const completions: CompletionMap = {
+    "2026-01-01": ["gym"],
+    "2026-06-01": ["gym"],
+    "2026-06-02": ["gym"],
+  };
+  const progress = computeGoalProgress(
+    goal({ period: { type: "ongoing", from: "2026-06-01" } }),
+    completions,
+    [habit("gym")],
+    "2026-09-01",
+  );
+  assert.equal(progress.current, 2, "January is before the goal began");
+});
+
+// --- month deltas ----------------------------------------------------------
+
+test("a month delta counts only that month, and only inside the goal's period", () => {
+  const completions: CompletionMap = {
+    "2026-07-31": ["gym"],
+    "2026-08-01": ["gym"],
+    "2026-08-15": ["gym"],
+    "2026-09-01": ["gym"],
+  };
+  const [delta] = goalDeltasForMonth(
+    [goal()],
+    completions,
+    [{ ...habit("gym"), name: "Gym" }],
+    [category()],
+    2026,
+    7, // August
+    "#000000",
+  );
+  assert.equal(delta.gained, 2);
+  assert.equal(delta.name, "Gym");
+});
+
+test("a month outside the goal's period contributes nothing", () => {
+  const scoped = goal({ period: { type: "custom", from: "2026-01-01", to: "2026-06-30" } });
+  const deltas = goalDeltasForMonth(
+    [scoped],
+    { "2026-08-10": ["gym"] },
+    [habit("gym")],
+    [category()],
+    2026,
+    7,
+    "#000000",
+  );
+  assert.equal(deltas.length, 0, "August is past the goal's June end");
+});
+
+// --- highlights ------------------------------------------------------------
+
+test("highlights merge milestones and moments, newest first", () => {
+  const progress = computeGoalProgress(
+    goal({ target: 2 }),
+    run("gym", "2026-03-01", 2),
+    [{ ...habit("gym"), name: "Gym" }],
+    "2026-12-01",
+  );
+  const highlights = collectYearHighlights(
+    2026,
+    [progress],
+    [{ id: "m1", date: "2026-06-01", title: "Shipped v1", emoji: "🚀" }],
+    [{ ...habit("gym"), name: "Gym" }],
+    [category()],
+    "#000000",
+  );
+
+  assert.equal(highlights[0].kind, "moment", "June comes before March");
+  assert.equal(highlights[0].title, "Shipped v1");
+  assert.ok(highlights.some((h) => h.title.startsWith("Gym goal reached")));
+  assert.ok(highlights.every((h) => h.date.startsWith("2026")));
+});
+
+test("highlights from another year are excluded", () => {
+  const progress = computeGoalProgress(
+    goal({ target: 1, period: { type: "ongoing", from: "2025-01-01" } }),
+    { "2025-05-05": ["gym"] },
+    [habit("gym")],
+    "2026-06-01",
+  );
+  const highlights = collectYearHighlights(
+    2026,
+    [progress],
+    [{ id: "m1", date: "2025-01-01", title: "Old", emoji: "🚀" }],
+    [habit("gym")],
+    [category()],
+    "#000000",
+  );
+  assert.equal(highlights.length, 0);
 });

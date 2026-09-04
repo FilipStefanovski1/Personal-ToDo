@@ -12,6 +12,7 @@ import { CategorySection } from "./CategorySection";
 import { DayProgress } from "./DayProgress";
 import { SickDayToggle } from "./SickDayToggle";
 import { DayNote } from "./DayNote";
+import { DayMoments } from "@/components/moments/DayMoments";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 
@@ -151,6 +152,8 @@ export function DayChecklist({
       )}
 
       <DayNote value={noteOn(date)} onSave={(text) => setNote(date, text)} />
+
+      <DayMoments date={date} />
 
       {notDue.length > 0 ? (
         <details className="group border-t border-line pt-4">

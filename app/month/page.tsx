@@ -13,6 +13,8 @@ import { MonthGrid } from "@/components/calendar/MonthGrid";
 import { MonthSummary } from "@/components/calendar/MonthSummary";
 import { MonthJournal } from "@/components/calendar/MonthJournal";
 import { computeMonthSummary } from "@/lib/stats";
+import { collectYearHighlights, computeGoalProgress, goalDeltasForMonth } from "@/lib/goals";
+import { DEFAULT_COLOR } from "@/lib/colors";
 import { LG_QUERY, useMediaQuery } from "@/lib/useMediaQuery";
 import { DaySheet } from "@/components/habits/DaySheet";
 import { DayChecklist } from "@/components/habits/DayChecklist";
@@ -20,7 +22,17 @@ import { Card, SectionLabel } from "@/components/ui/Card";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function MonthPage() {
-  const { ready, activeCategories, activeHabits, data, sickDaySet } = useStore();
+  const {
+    ready,
+    activeCategories,
+    activeHabits,
+    categories,
+    habits,
+    data,
+    sickDaySet,
+    goals,
+    moments,
+  } = useStore();
   const now = new Date();
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const [selected, setSelected] = useState(() => todayKey());
@@ -44,6 +56,28 @@ export default function MonthPage() {
       ),
     [activeCategories, activeHabits, data.completions, data.notes, sickDaySet, cursor],
   );
+
+  /** What each goal gained this month, and the month's milestones. */
+  const goalDeltas = useMemo(
+    () =>
+      goalDeltasForMonth(
+        goals,
+        data.completions,
+        habits,
+        categories,
+        cursor.year,
+        cursor.month,
+        DEFAULT_COLOR,
+      ),
+    [goals, data.completions, habits, categories, cursor],
+  );
+
+  const monthMilestones = useMemo(() => {
+    const prefix = `${cursor.year}-${String(cursor.month + 1).padStart(2, "0")}`;
+    const progress = goals.map((g) => computeGoalProgress(g, data.completions, habits));
+    return collectYearHighlights(cursor.year, progress, moments, habits, categories, DEFAULT_COLOR)
+      .filter((h) => h.date.startsWith(prefix) && h.kind === "milestone");
+  }, [goals, data.completions, habits, categories, moments, cursor]);
 
   const selectDay = useCallback(
     (date: string) => {
@@ -139,6 +173,47 @@ export default function MonthPage() {
           <DayChecklist date={selected} />
         </Card>
       </div>
+
+      {goalDeltas.length > 0 ? (
+        <section className="space-y-3">
+          <SectionLabel>What moved this month</SectionLabel>
+          <Card className="divide-y divide-line overflow-hidden">
+            {goalDeltas.map((delta) => (
+              <div key={delta.goalId} className="flex items-center gap-3 px-4 py-2.5">
+                <span
+                  aria-hidden
+                  className="size-2.5 shrink-0 rounded-[3px]"
+                  style={{ background: delta.color }}
+                />
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium tracking-tight">
+                  {delta.name}
+                </span>
+                <span className="shrink-0 text-[13px] tabular text-ink-muted">
+                  <span className="font-semibold text-ink">+{delta.gained}</span> {delta.noun}
+                </span>
+              </div>
+            ))}
+            {monthMilestones.map((milestone) => (
+              <div
+                key={milestone.key}
+                className="flex items-center gap-3 bg-sunken/40 px-4 py-2.5"
+              >
+                <span
+                  aria-hidden
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ background: milestone.color }}
+                />
+                <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">
+                  {milestone.title}
+                </span>
+                <span className="shrink-0 text-[11.5px] tabular text-ink-muted">
+                  {Number(milestone.date.slice(8, 10))}
+                </span>
+              </div>
+            ))}
+          </Card>
+        </section>
+      ) : null}
 
       <MonthJournal year={cursor.year} month={cursor.month} onSelectDay={selectDay} />
 
