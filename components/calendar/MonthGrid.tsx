@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { DateKey, Habit } from "@/types";
 import { useStore } from "@/lib/store";
+import { stripeBackground } from "@/lib/colors";
 import {
   DAY_INITIALS,
   daysInMonthKeys,
@@ -12,11 +13,14 @@ import {
   weekdayOrder,
 } from "@/lib/dates";
 
-const MAX_DOTS = 4;
-
 /**
- * A conventional month calendar where each day carries small colour blocks for
- * the habits completed that day.
+ * A conventional month calendar. Each day carries a compact stripe of the
+ * colours completed that day, plus a mark when the day has a note.
+ *
+ * The stripe replaced a row of dots: at a phone's ~40px cell width four dots
+ * and a "+N" overflowed the cell and collided with the neighbouring day. A
+ * single segmented bar carries the same colours, scales to any number of
+ * habits, and always fits.
  */
 export function MonthGrid({
   year,
@@ -29,7 +33,7 @@ export function MonthGrid({
   selected: DateKey;
   onSelect: (date: DateKey) => void;
 }) {
-  const { activeHabits, habits, completionsOn, settings } = useStore();
+  const { activeHabits, habits, completionsOn, settings, data } = useStore();
   const today = todayKey();
 
   const habitById = useMemo(() => new Map(habits.map((h) => [h.id, h])), [habits]);
@@ -64,6 +68,7 @@ export function MonthGrid({
             .filter((h): h is Habit => !!h)
             .sort((a, b) => a.order - b.order);
 
+          const hasNote = Boolean(data.notes[date]);
           const isSelected = date === selected;
           const isToday = date === today;
           const future = isFuture(date);
@@ -76,7 +81,7 @@ export function MonthGrid({
               onClick={() => onSelect(date)}
               disabled={future}
               aria-current={isToday ? "date" : undefined}
-              aria-label={`${date}, ${completed.length} completed`}
+              aria-label={`${date}, ${completed.length} completed${hasNote ? ", has a note" : ""}`}
               className={[
                 "group relative flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border p-1",
                 "transition-all duration-150 active:scale-[0.96]",
@@ -96,20 +101,23 @@ export function MonthGrid({
                 {dayNumber}
               </span>
 
-              <span className="flex h-2 items-center justify-center gap-[3px]" aria-hidden>
-                {completed.slice(0, MAX_DOTS).map((habit) => (
-                  <span
-                    key={habit.id}
-                    className="size-1.5 rounded-[2px] cell-enter"
-                    style={{ background: habit.color }}
-                  />
-                ))}
-                {completed.length > MAX_DOTS ? (
-                  <span className="text-[9px] font-bold leading-none text-ink-muted">
-                    +{completed.length - MAX_DOTS}
-                  </span>
-                ) : null}
-              </span>
+              <span
+                aria-hidden
+                className="h-1.5 w-[72%] max-w-[34px] rounded-full transition-colors duration-150"
+                style={{
+                  background: completed.length
+                    ? stripeBackground(completed.map((h) => h.color))
+                    : "transparent",
+                }}
+              />
+
+              {/* A written day gets a quiet mark in the corner. */}
+              {hasNote ? (
+                <span
+                  aria-hidden
+                  className="absolute right-1.5 top-1.5 size-1 rounded-full bg-ink-muted"
+                />
+              ) : null}
 
               {isToday ? (
                 <span
