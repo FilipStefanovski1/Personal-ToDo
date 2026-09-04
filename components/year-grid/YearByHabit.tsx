@@ -129,15 +129,20 @@ export function YearByHabit({
       const habit = habits.find((h) => h.id === target.dataset.habit);
       if (!habit) return;
       const done = completedByHabit.get(habit.id)?.has(date) ?? false;
+      const variant = done ? data.variants[date]?.[habit.id] : undefined;
       setTooltip({
         x: rect.left + rect.width / 2,
         y: rect.top,
         title: formatLongDate(date),
-        detail: `${habit.name} ${done ? "completed" : "not completed"}`,
+        detail: done
+          ? variant
+            ? `${habit.name} — ${variant}`
+            : `${habit.name} completed`
+          : `${habit.name} not completed`,
         color: done ? habit.color : undefined,
       });
     },
-    [habits, completedByHabit, data.notes],
+    [habits, completedByHabit, data.notes, data.variants],
   );
 
   /** A cell click opens that whole day rather than just describing it. */

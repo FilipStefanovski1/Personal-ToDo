@@ -23,6 +23,7 @@ export function toExportBundle(data: AppData): ExportBundle {
     completions,
     sickDays: data.sickDays,
     notes: data.notes,
+    variants: data.variants,
     settings: data.settings,
   };
 }
@@ -72,6 +73,7 @@ export function parseImport(json: string): AppData {
     completions,
     sickDays: raw.sickDays,
     notes: raw.notes,
+    variants: raw.variants,
     settings: raw.settings,
   });
 }

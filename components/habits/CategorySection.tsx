@@ -4,6 +4,7 @@ import type { Category, DateKey, Habit } from "@/types";
 import { progressLabel, type CategoryProgress } from "@/lib/categories";
 import { weeklyProgress } from "@/lib/schedule";
 import { HabitCheckRow } from "./HabitCheckRow";
+import { VariantPicker } from "./VariantPicker";
 
 /**
  * One category on the Today screen: an understated header with derived
@@ -23,6 +24,8 @@ export function CategorySection({
   onToggle,
   weekStartsOn,
   isFirst,
+  variantOn,
+  onSelectVariant,
 }: {
   category: Category;
   progress: CategoryProgress;
@@ -33,6 +36,8 @@ export function CategorySection({
   onToggle: (habitId: string) => void;
   weekStartsOn: 0 | 1;
   isFirst: boolean;
+  variantOn: (habitId: string, date: DateKey) => string | null;
+  onSelectVariant: (habitId: string, variant: string | null) => void;
 }) {
   if (habits.length === 0) return null;
 
@@ -62,15 +67,26 @@ export function CategorySection({
                 } this week`
               : undefined;
 
+          const completed = completedIds.has(habit.id);
           return (
-            <HabitCheckRow
-              key={habit.id}
-              habit={habit}
-              date={date}
-              completed={completedIds.has(habit.id)}
-              onToggle={() => onToggle(habit.id)}
-              meta={meta}
-            />
+            <div key={habit.id}>
+              <HabitCheckRow
+                habit={habit}
+                date={date}
+                completed={completed}
+                onToggle={() => onToggle(habit.id)}
+                meta={meta}
+              />
+              {/* Only after it's done — the tap is never gated on a choice. */}
+              {completed && habit.variants?.length ? (
+                <VariantPicker
+                  variants={habit.variants}
+                  selected={variantOn(habit.id, date)}
+                  color={habit.color}
+                  onSelect={(variant) => onSelectVariant(habit.id, variant)}
+                />
+              ) : null}
+            </div>
           );
         })}
       </div>

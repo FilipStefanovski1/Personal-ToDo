@@ -52,6 +52,12 @@ export interface Habit {
   /** Hex string, e.g. `#F97316`. Used verbatim as the cell fill. */
   color: string;
   schedule: HabitSchedule;
+  /**
+   * Optional flavours of this habit — Gym → Push / Pull / Legs. When set,
+   * completing the habit offers them as a follow-up; picking one is never
+   * required, so a completion is always still a single tap.
+   */
+  variants?: string[];
   /** Ascending; controls display order everywhere. */
   order: number;
   archived: boolean;
@@ -73,6 +79,21 @@ export type CompletionMap = Record<DateKey, string[]>;
 
 /** Free-text day notes, indexed by date. Empty notes are never stored. */
 export type NoteMap = Record<DateKey, string>;
+
+/**
+ * Which variant of a habit was done on a day: `{ "2026-08-17": { gym: "Push" } }`.
+ *
+ * Deliberately a side table rather than a field on the completion record.
+ * Completions are the most precious data in the app and stay exactly as they
+ * were — a bare list of habit ids — so this feature carries no migration risk
+ * to them. An orphaned variant is inert: nothing reads it unless the matching
+ * completion exists.
+ */
+export type VariantMap = Record<DateKey, Record<string, string>>;
+
+/** Cap on a habit's variant list — a picker, not a taxonomy. */
+export const MAX_VARIANTS = 8;
+export const MAX_VARIANT_LENGTH = 20;
 
 /** Longest note we'll store. Generous for a line or two, bounded for storage. */
 export const MAX_NOTE_LENGTH = 500;
@@ -109,6 +130,8 @@ export interface AppData {
    * nothing in the app ever asks for one.
    */
   notes: NoteMap;
+  /** Which variant was logged, per habit per day. See `VariantMap`. */
+  variants: VariantMap;
   settings: AppSettings;
 }
 
@@ -122,6 +145,7 @@ export interface ExportBundle {
   completions: HabitCompletion[];
   sickDays: DateKey[];
   notes: NoteMap;
+  variants: VariantMap;
   settings: AppSettings;
 }
 
@@ -137,6 +161,8 @@ export interface HabitStats {
   completedThisMonth: number;
   completedThisYear: number;
   totalCompleted: number;
+  /** Counts per variant this year, most-used first. Empty when unused. */
+  variantCounts: Array<{ variant: string; count: number }>;
 }
 
 /**

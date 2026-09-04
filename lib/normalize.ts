@@ -6,11 +6,12 @@ import type {
   DateKey,
   GoalType,
   NoteMap,
+  VariantMap,
   Habit,
   HabitSchedule,
   Weekday,
 } from "@/types";
-import { MAX_NOTE_LENGTH } from "@/types";
+import { MAX_NOTE_LENGTH, MAX_VARIANTS, MAX_VARIANT_LENGTH } from "@/types";
 import { isValidDateKey } from "./dates";
 import { DEFAULT_COLOR, isValidHex } from "./colors";
 
@@ -21,8 +22,10 @@ import { DEFAULT_COLOR, isValidHex } from "./colors";
  * v3 → v4 added sick days; purely additive, so no migration step is needed —
  * data without the field just normalizes to an empty list.
  * v4 → v5 added day notes; also purely additive.
+ * v5 → v6 added habit variants (Gym → Push/Pull/Legs). Stored in a side table
+ * so the completion records themselves were never touched.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /** Category used for habits that arrive without one (v1 data, sloppy imports). */
 export const FALLBACK_CATEGORY_NAME = "Other";
@@ -98,6 +101,7 @@ function normalizeHabit(input: unknown, index: number): Habit | null {
     emoji: typeof raw.emoji === "string" && raw.emoji ? raw.emoji : "🎯",
     color,
     schedule: normalizeSchedule(raw.schedule),
+    variants: normalizeVariantList(raw.variants),
     order: typeof raw.order === "number" ? raw.order : index,
     archived: raw.archived === true,
     createdAt:
@@ -116,6 +120,42 @@ export function normalizeCompletions(input: unknown, habitIds: Set<string>): Com
     if (!isValidDateKey(dateKey) || !Array.isArray(value)) continue;
     const ids = [...new Set(value.filter((v): v is string => typeof v === "string" && habitIds.has(v)))];
     if (ids.length > 0) out[dateKey] = ids;
+  }
+  return out;
+}
+
+/** A habit's variant list: trimmed, deduped, bounded. */
+export function normalizeVariantList(input: unknown): string[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of input) {
+    if (typeof value !== "string") continue;
+    const name = value.trim().slice(0, MAX_VARIANT_LENGTH);
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= MAX_VARIANTS) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/** Drops variants on unknown dates or unknown habits. */
+export function normalizeVariants(input: unknown, habitIds: Set<string>): VariantMap {
+  const out: VariantMap = {};
+  if (!input || typeof input !== "object") return out;
+
+  for (const [dateKey, perHabit] of Object.entries(input as Record<string, unknown>)) {
+    if (!isValidDateKey(dateKey) || !perHabit || typeof perHabit !== "object") continue;
+    const day: Record<string, string> = {};
+    for (const [habitId, value] of Object.entries(perHabit as Record<string, unknown>)) {
+      if (!habitIds.has(habitId) || typeof value !== "string") continue;
+      const name = value.trim().slice(0, MAX_VARIANT_LENGTH);
+      if (name) day[habitId] = name;
+    }
+    if (Object.keys(day).length > 0) out[dateKey] = day;
   }
   return out;
 }
@@ -216,6 +256,7 @@ export function normalizeAppData(input: unknown): AppData {
     completions: normalizeCompletions(raw.completions, habitIds),
     sickDays: normalizeSickDays(raw.sickDays),
     notes: normalizeNotes(raw.notes),
+    variants: normalizeVariants(raw.variants, habitIds),
     settings: normalizeSettings(raw.settings),
   };
 }

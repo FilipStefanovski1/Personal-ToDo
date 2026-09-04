@@ -5,6 +5,7 @@ import type {
   DateKey,
   Habit,
   HabitStats,
+  VariantMap,
 } from "@/types";
 import { categoryProgress } from "./categories";
 import {
@@ -141,6 +142,7 @@ export function computeHabitStats(
   weekStartsOn: 0 | 1,
   sickDays: ReadonlySet<DateKey> = new Set(),
   isDone = makeCompletionLookup(completions),
+  variants: VariantMap = {},
 ): HabitStats {
   const today = todayKey();
   const dates = habitDateRange(habit, completions, today);
@@ -152,9 +154,14 @@ export function computeHabitStats(
   let completedThisYear = 0;
   let scheduledDays = 0;
   let scheduledDone = 0;
+  const variantTally = new Map<string, number>();
 
   for (const date of dates) {
     const done = isDone(habit.id, date);
+    if (done && date.startsWith(year)) {
+      const variant = variants[date]?.[habit.id];
+      if (variant) variantTally.set(variant, (variantTally.get(variant) ?? 0) + 1);
+    }
     // Raw counts always reflect what actually happened — a completion on a
     // sick day still happened and still counts.
     if (done) {
@@ -201,6 +208,9 @@ export function computeHabitStats(
     completedThisMonth,
     completedThisYear,
     totalCompleted,
+    variantCounts: [...variantTally.entries()]
+      .map(([variant, count]) => ({ variant, count }))
+      .sort((a, b) => b.count - a.count || a.variant.localeCompare(b.variant)),
   };
 }
 

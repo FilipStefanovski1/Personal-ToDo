@@ -178,3 +178,34 @@ test("rates are measured from first use, not habit creation", () => {
   const stats = computeHabitStats(old, { [yesterday]: ["a"], [today]: ["a"] }, 1, new Set());
   assert.equal(stats.completionRate, 100);
 });
+
+// --- habit variants -------------------------------------------------------
+
+test("variant counts tally per year, most-used first", () => {
+  const gym: Habit = { ...habit("gym"), variants: ["Push", "Pull", "Legs"] };
+  const year = today.slice(0, 4);
+  const completions = {
+    [`${year}-03-01`]: ["gym"],
+    [`${year}-03-02`]: ["gym"],
+    [`${year}-03-03`]: ["gym"],
+    [`${year}-03-04`]: ["gym"],
+  };
+  const variants = {
+    [`${year}-03-01`]: { gym: "Push" },
+    [`${year}-03-02`]: { gym: "Push" },
+    [`${year}-03-03`]: { gym: "Legs" },
+    // 03-04 completed with no variant picked — must not be counted or crash.
+  };
+
+  const stats = computeHabitStats(gym, completions, 1, new Set(), undefined, variants);
+  assert.deepEqual(stats.variantCounts, [
+    { variant: "Push", count: 2 },
+    { variant: "Legs", count: 1 },
+  ]);
+  assert.equal(stats.totalCompleted, 4, "an unlabelled session still counts as done");
+});
+
+test("a habit with no variants reports an empty breakdown", () => {
+  const stats = computeHabitStats(habit("a"), { [today]: ["a"] }, 1);
+  assert.deepEqual(stats.variantCounts, []);
+});

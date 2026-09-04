@@ -6,6 +6,7 @@ interface SeedItem {
   emoji: string;
   color: string;
   schedule?: Habit["schedule"];
+  variants?: string[];
 }
 
 interface SeedGroup {
@@ -42,7 +43,7 @@ const SEED_GROUPS: SeedGroup[] = [
     items: [
       { name: "Run", emoji: "🏃", color: "#12A594" },
       { name: "Basketball", emoji: "🏀", color: "#0FB0C4" },
-      { name: "Gym", emoji: "🏋️", color: "#3B9EF5" },
+      { name: "Gym", emoji: "🏋️", color: "#3B9EF5", variants: ["Push", "Pull", "Legs"] },
     ],
   },
   {
@@ -80,6 +81,7 @@ export function createSeedStructure(): { categories: Category[]; habits: Habit[]
         emoji: item.emoji,
         color: item.color,
         schedule: item.schedule ?? { type: "daily" },
+        variants: item.variants,
         order: itemIndex,
         archived: false,
         createdAt,
@@ -105,6 +107,7 @@ export function createSeedData(): AppData {
     completions: {},
     sickDays: [],
     notes: {},
+    variants: {},
     settings: { ...DEFAULT_SETTINGS },
   };
 }

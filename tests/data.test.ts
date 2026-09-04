@@ -1,8 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeAppData, normalizeNotes, normalizeSickDays } from "@/lib/normalize";
+import {
+  normalizeAppData,
+  normalizeNotes,
+  normalizeSickDays,
+  normalizeVariantList,
+} from "@/lib/normalize";
 import { migrateStoredData, stripGeneratedHistory } from "@/lib/migrations";
+import { SCHEMA_VERSION } from "@/lib/normalize";
 import { exportToJson, parseImport, ImportError } from "@/lib/transfer";
 import { createSeedData } from "@/lib/seed";
 import { shiftKey, todayKey } from "@/lib/dates";
@@ -110,13 +116,13 @@ test("loading pre-v3 storage strips generated history but keeps everything else"
   assert.deepEqual(Object.keys(migrated.completions), [today]);
   assert.equal(migrated.habits.length, 1);
   assert.equal(migrated.settings.theme, "dark", "preferences survive");
-  assert.equal(migrated.version, 5);
+  assert.equal(migrated.version, SCHEMA_VERSION, "upgraded to current");
 });
 
 test("loading current-schema storage never strips real history", () => {
   const history = { "2026-01-05": ["a"], "2026-02-06": ["a"], [today]: ["a"] };
   const loaded = migrateStoredData({
-    version: 5,
+    version: SCHEMA_VERSION,
     categories: [{ id: "c1", name: "S", order: 0, goalType: "all", goalTarget: 1 }],
     habits: [
       { id: "a", categoryId: "c1", name: "V", color: "#F5B814", schedule: { type: "daily" }, order: 0, createdAt: "2026-01-01T00:00:00.000Z" },
@@ -184,4 +190,24 @@ test("import drops completions referencing habits that no longer exist", () => {
     settings: {},
   });
   assert.deepEqual(parseImport(bundle).completions["2026-05-01"], ["a"]);
+});
+
+test("variant lists are trimmed, deduped case-insensitively and bounded", () => {
+  assert.deepEqual(normalizeVariantList(["  Push ", "push", "Pull"]), ["Push", "Pull"]);
+  assert.equal(normalizeVariantList([]), undefined, "empty means 'no variants'");
+  assert.equal(normalizeVariantList("nope"), undefined);
+  assert.equal(normalizeVariantList(Array.from({ length: 20 }, (_, i) => `v${i}`))!.length, 8);
+});
+
+test("variants pointing at unknown habits are dropped on load", () => {
+  const data = normalizeAppData({
+    categories: [{ id: "c1", name: "S", order: 0, goalType: "all", goalTarget: 1 }],
+    habits: [
+      { id: "gym", categoryId: "c1", name: "Gym", color: "#3B9EF5", schedule: { type: "daily" }, order: 0, createdAt: "2026-01-01T00:00:00.000Z", variants: ["Push"] },
+    ],
+    completions: {},
+    variants: { "2026-05-01": { gym: "Push", ghost: "Pull" }, "bad-date": { gym: "Push" } },
+  });
+  assert.deepEqual(data.variants, { "2026-05-01": { gym: "Push" } });
+  assert.deepEqual(data.habits[0].variants, ["Push"]);
 });

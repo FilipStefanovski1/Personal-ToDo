@@ -41,6 +41,8 @@ export function DayChecklist({
     toggleSickDay,
     noteOn,
     setNote,
+    variantOn,
+    setVariant,
   } = useStore();
 
   const completedIds = useMemo(() => new Set(completionsOn(date)), [completionsOn, date]);
@@ -141,6 +143,8 @@ export function DayChecklist({
               onToggle={(habitId) => toggleCompletion(habitId, date)}
               weekStartsOn={settings.weekStartsOn}
               isFirst={index === 0 && !showProgress}
+              variantOn={variantOn}
+              onSelectVariant={(habitId, variant) => setVariant(habitId, date, variant)}
             />
           ))}
         </>

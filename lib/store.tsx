@@ -62,6 +62,9 @@ interface StoreValue {
   sickDaySet: ReadonlySet<DateKey>;
   noteOn: (date: DateKey) => string;
   setNote: (date: DateKey, text: string) => void;
+  /** Which variant was logged for this habit on this day, if any. */
+  variantOn: (habitId: string, date: DateKey) => string | null;
+  setVariant: (habitId: string, date: DateKey, variant: string | null) => void;
   isSickDay: (date: DateKey) => boolean;
   setSickDay: (date: DateKey, sick: boolean) => void;
   toggleSickDay: (date: DateKey) => void;
@@ -102,6 +105,7 @@ const EMPTY_DATA: AppData = {
   completions: {},
   sickDays: [],
   notes: {},
+  variants: {},
   settings: { ...DEFAULT_SETTINGS },
 };
 
@@ -180,10 +184,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const next = { ...prev.completions };
       if (done) {
         next[date] = [...existing, habitId];
-      } else {
-        const remaining = existing.filter((id) => id !== habitId);
-        if (remaining.length > 0) next[date] = remaining;
-        else delete next[date];
+        return { ...prev, completions: next };
+      }
+
+      const remaining = existing.filter((id) => id !== habitId);
+      if (remaining.length > 0) next[date] = remaining;
+      else delete next[date];
+
+      // Un-completing drops any variant with it — a "Push" with no gym
+      // session behind it would be a lie the stats would happily count.
+      const variants = { ...prev.variants };
+      const day = variants[date];
+      if (day?.[habitId]) {
+        const nextDay = { ...day };
+        delete nextDay[habitId];
+        if (Object.keys(nextDay).length > 0) variants[date] = nextDay;
+        else delete variants[date];
+        return { ...prev, completions: next, variants };
       }
       return { ...prev, completions: next };
     });
@@ -208,6 +225,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (trimmed) notes[date] = trimmed;
       else delete notes[date];
       return { ...prev, notes };
+    });
+  }, []);
+
+  const variantOn = useCallback(
+    (habitId: string, date: DateKey) => data.variants[date]?.[habitId] ?? null,
+    [data.variants],
+  );
+
+  const setVariant = useCallback((habitId: string, date: DateKey, variant: string | null) => {
+    setData((prev) => {
+      const day = prev.variants[date] ?? {};
+      if ((day[habitId] ?? null) === variant) return prev;
+
+      const variants = { ...prev.variants };
+      const nextDay = { ...day };
+      if (variant) nextDay[habitId] = variant;
+      else delete nextDay[habitId];
+
+      if (Object.keys(nextDay).length > 0) variants[date] = nextDay;
+      else delete variants[date];
+      return { ...prev, variants };
     });
   }, []);
 
@@ -427,7 +465,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Wipes history but keeps the categories and items themselves. */
   const clearHistory = useCallback(() => {
-    setData((prev) => ({ ...prev, completions: {}, sickDays: [], notes: {} }));
+    setData((prev) => ({
+      ...prev,
+      completions: {},
+      sickDays: [],
+      notes: {},
+      variants: {},
+    }));
   }, []);
 
   const categories = useMemo(
@@ -472,6 +516,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       sickDaySet,
       noteOn,
       setNote,
+      variantOn,
+      setVariant,
       isSickDay,
       setSickDay,
       toggleSickDay,
@@ -496,7 +542,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [
       ready, data, categories, activeCategories, habits, activeHabits, habitsIn,
       isCompleted, completionsOn, toggleCompletion, setCompletion,
-      sickDaySet, noteOn, setNote, isSickDay, setSickDay, toggleSickDay,
+      sickDaySet, noteOn, setNote, variantOn, setVariant, isSickDay, setSickDay, toggleSickDay,
       addCategory, updateCategory, deleteCategory, setCategoryArchived, toggleCollapsed,
       moveCategory, reorderCategory,
       addHabit, updateHabit, deleteHabit, setArchived, moveHabit, reorderHabit,

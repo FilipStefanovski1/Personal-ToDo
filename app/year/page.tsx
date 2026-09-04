@@ -76,9 +76,16 @@ export default function YearPage() {
     const lookup = makeCompletionLookup(data.completions);
     return shownHabits.map((habit) => ({
       habit,
-      stats: computeHabitStats(habit, data.completions, settings.weekStartsOn, sickDaySet, lookup),
+      stats: computeHabitStats(
+        habit,
+        data.completions,
+        settings.weekStartsOn,
+        sickDaySet,
+        lookup,
+        data.variants,
+      ),
     }));
-  }, [shownHabits, data.completions, settings.weekStartsOn, sickDaySet]);
+  }, [shownHabits, data.completions, settings.weekStartsOn, sickDaySet, data.variants]);
 
   if (!ready) return <PageSkeleton />;
 

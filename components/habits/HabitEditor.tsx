@@ -12,6 +12,7 @@ import {
   withAlpha,
 } from "@/lib/colors";
 import { DAY_INITIALS, weekdayOrder } from "@/lib/dates";
+import { MAX_VARIANTS, MAX_VARIANT_LENGTH } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Portal } from "@/components/ui/Portal";
 
@@ -21,6 +22,7 @@ export interface HabitDraft {
   emoji: string;
   color: string;
   schedule: HabitSchedule;
+  variants?: string[];
 }
 
 type ScheduleKind = HabitSchedule["type"];
@@ -31,6 +33,7 @@ const EMPTY: HabitDraft = {
   emoji: "🎯",
   color: DEFAULT_COLOR,
   schedule: { type: "daily" },
+  variants: undefined,
 };
 
 /**
@@ -57,6 +60,7 @@ export function HabitEditor({
 }) {
   const [draft, setDraft] = useState<HabitDraft>(EMPTY);
   const [customColor, setCustomColor] = useState("");
+  const [variantDraft, setVariantDraft] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -68,12 +72,14 @@ export function HabitEditor({
             emoji: habit.emoji,
             color: habit.color,
             schedule: habit.schedule,
+            variants: habit.variants,
           }
         : {
             ...EMPTY,
             categoryId: defaultCategoryId ?? categories[0]?.id ?? "",
           },
     );
+    setVariantDraft("");
     const initial = habit?.color ?? DEFAULT_COLOR;
     const isPreset = PALETTE.some((s) => s.hex.toLowerCase() === initial.toLowerCase());
     setCustomColor(isPreset ? "" : initial);
@@ -116,6 +122,26 @@ export function HabitEditor({
       // Never allow an empty weekday set — it would mean "never due".
       if (days.length === 0) return d;
       return { ...d, schedule: { type: "weekdays", days } };
+    });
+  };
+
+  const addVariant = () => {
+    const name = variantDraft.trim().slice(0, MAX_VARIANT_LENGTH);
+    if (!name) return;
+    setDraft((d) => {
+      const existing = d.variants ?? [];
+      if (existing.length >= MAX_VARIANTS) return d;
+      // Case-insensitive: "Push" and "push" are the same split.
+      if (existing.some((v) => v.toLowerCase() === name.toLowerCase())) return d;
+      return { ...d, variants: [...existing, name] };
+    });
+    setVariantDraft("");
+  };
+
+  const removeVariant = (name: string) => {
+    setDraft((d) => {
+      const next = (d.variants ?? []).filter((v) => v !== name);
+      return { ...d, variants: next.length > 0 ? next : undefined };
     });
   };
 
@@ -355,6 +381,52 @@ export function HabitEditor({
                     </button>
                   );
                 })}
+              </div>
+            ) : null}
+          </Field>
+
+          <Field label="Variants (optional)">
+            <p className="-mt-1 mb-2.5 text-[12px] leading-relaxed text-ink-muted">
+              Flavours of the same habit — Gym as Push, Pull, Legs. Completing
+              stays one tap; the variant is an optional second tap.
+            </p>
+
+            {draft.variants?.length ? (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {draft.variants.map((variant) => (
+                  <button
+                    key={variant}
+                    type="button"
+                    onClick={() => removeVariant(variant)}
+                    aria-label={`Remove ${variant}`}
+                    className="group flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors"
+                    style={{ background: withAlpha(draft.color, 0.14) }}
+                  >
+                    {variant}
+                    <X size={11} strokeWidth={2.6} className="text-ink-muted group-hover:text-ink" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {(draft.variants?.length ?? 0) < MAX_VARIANTS ? (
+              <div className="flex gap-2">
+                <input
+                  value={variantDraft}
+                  onChange={(event) => setVariantDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addVariant();
+                    }
+                  }}
+                  placeholder="Add a variant"
+                  maxLength={MAX_VARIANT_LENGTH}
+                  className="h-9 w-full rounded-xl border border-line bg-canvas px-3 text-[13px] outline-none transition-colors placeholder:text-ink-muted focus:border-ink-muted"
+                />
+                <Button size="sm" onClick={addVariant} disabled={!variantDraft.trim()}>
+                  Add
+                </Button>
               </div>
             ) : null}
           </Field>

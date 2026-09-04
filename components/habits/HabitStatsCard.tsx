@@ -79,6 +79,17 @@ export function HabitStatsCard({ habit, stats }: { habit: Habit; stats: HabitSta
         />
       </div>
 
+      {stats.variantCounts.length > 0 ? (
+        <div className="mt-3.5 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-3">
+          {stats.variantCounts.map(({ variant, count }) => (
+            <span key={variant} className="text-[11.5px] text-ink-muted">
+              {variant}{" "}
+              <span className="font-semibold tabular text-ink-soft">{count}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       {stats.hasRate ? (
         <div
           className="mt-3.5 h-1.5 overflow-hidden rounded-full"
