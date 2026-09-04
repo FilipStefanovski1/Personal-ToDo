@@ -11,6 +11,7 @@ import { HabitCheckRow } from "./HabitCheckRow";
 import { CategorySection } from "./CategorySection";
 import { DayProgress } from "./DayProgress";
 import { SickDayToggle } from "./SickDayToggle";
+import { DayNote } from "./DayNote";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 
@@ -22,9 +23,12 @@ import { Button } from "@/components/ui/Button";
 export function DayChecklist({
   date,
   showProgress = true,
+  sickToggleVariant = "floating",
 }: {
   date: DateKey;
   showProgress?: boolean;
+  /** Inline inside the day sheet, floating on full pages. */
+  sickToggleVariant?: "floating" | "inline";
 }) {
   const {
     activeCategories,
@@ -35,6 +39,8 @@ export function DayChecklist({
     settings,
     isSickDay,
     toggleSickDay,
+    noteOn,
+    setNote,
   } = useStore();
 
   const completedIds = useMemo(() => new Set(completionsOn(date)), [completionsOn, date]);
@@ -100,7 +106,11 @@ export function DayChecklist({
 
   return (
     <div className="space-y-5">
-      <SickDayToggle active={sick} onToggle={() => toggleSickDay(date)} />
+      <SickDayToggle
+        active={sick}
+        onToggle={() => toggleSickDay(date)}
+        variant={sickToggleVariant}
+      />
 
       {sick ? (
         <p className="text-[12.5px] leading-relaxed text-ink-muted">
@@ -135,6 +145,8 @@ export function DayChecklist({
           ))}
         </>
       )}
+
+      <DayNote value={noteOn(date)} onSave={(text) => setNote(date, text)} />
 
       {notDue.length > 0 ? (
         <details className="group border-t border-line pt-4">

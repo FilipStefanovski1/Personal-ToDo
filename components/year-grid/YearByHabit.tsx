@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, PenLine } from "lucide-react";
 import type { Category, DateKey, Habit } from "@/types";
 import { useStore } from "@/lib/store";
 import { MONTH_SHORT, daysInYear, formatLongDate, isFuture, todayKey } from "@/lib/dates";
@@ -22,7 +22,9 @@ const HEADING_GAP = 10;
 
 type GridRow =
   | { kind: "heading"; key: string; category: Category }
-  | { kind: "habit"; key: string; habit: Habit };
+  | { kind: "habit"; key: string; habit: Habit }
+  /** A neutral strip marking the days that carry a written note. */
+  | { kind: "notes"; key: string };
 
 /**
  * The signature view: one row of 365 cells per individual item, grouped under
@@ -36,12 +38,14 @@ export function YearByHabit({
   year,
   categories,
   habits,
+  onSelectDay,
 }: {
   year: number;
   categories: Category[];
   habits: Habit[];
+  onSelectDay: (date: DateKey) => void;
 }) {
-  const { completionsOn, settings, toggleCollapsed } = useStore();
+  const { completionsOn, settings, toggleCollapsed, data } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -55,9 +59,20 @@ export function YearByHabit({
 
   const byCategory = useMemo(() => groupByCategory(habits), [habits]);
 
-  /** Flattened render order: heading, its items, next heading, … */
+  /** Dates in this year that carry a note. */
+  const notedDays = useMemo(() => {
+    const set = new Set<DateKey>();
+    for (const date of Object.keys(data.notes)) {
+      if (date.startsWith(String(year))) set.add(date);
+    }
+    return set;
+  }, [data.notes, year]);
+
+  /** Flattened render order: notes strip, then heading, its items, … */
   const rows = useMemo<GridRow[]>(() => {
     const out: GridRow[] = [];
+    // Only once there's something to show — an always-empty strip is noise.
+    if (notedDays.size > 0) out.push({ kind: "notes", key: "__notes" });
     for (const category of categories) {
       const items = byCategory.get(category.id) ?? [];
       if (items.length === 0) continue;
@@ -66,7 +81,7 @@ export function YearByHabit({
       for (const habit of items) out.push({ kind: "habit", key: habit.id, habit });
     }
     return out;
-  }, [categories, byCategory]);
+  }, [categories, byCategory, notedDays]);
 
   /** habitId -> Set of completed dates in this year. */
   const completedByHabit = useMemo(() => {
@@ -98,10 +113,22 @@ export function YearByHabit({
         return;
       }
       const date = target.dataset.date!;
+      const rect = target.getBoundingClientRect();
+      const note = data.notes[date];
+
+      if (target.dataset.row === "notes") {
+        setTooltip({
+          x: rect.left + rect.width / 2,
+          y: rect.top,
+          title: formatLongDate(date),
+          detail: note ?? "No note",
+        });
+        return;
+      }
+
       const habit = habits.find((h) => h.id === target.dataset.habit);
       if (!habit) return;
       const done = completedByHabit.get(habit.id)?.has(date) ?? false;
-      const rect = target.getBoundingClientRect();
       setTooltip({
         x: rect.left + rect.width / 2,
         y: rect.top,
@@ -110,7 +137,17 @@ export function YearByHabit({
         color: done ? habit.color : undefined,
       });
     },
-    [habits, completedByHabit],
+    [habits, completedByHabit, data.notes],
+  );
+
+  /** A cell click opens that whole day rather than just describing it. */
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>("[data-date]");
+      if (!target) return;
+      onSelectDay(target.dataset.date!);
+    },
+    [onSelectDay],
   );
 
   if (rows.length === 0) return null;
@@ -125,7 +162,7 @@ export function YearByHabit({
         className="tidy-scroll overflow-x-auto pb-2"
         onMouseMove={handlePointer}
         onMouseLeave={() => setTooltip(null)}
-        onClick={handlePointer}
+        onClick={handleClick}
       >
         <div className={`flex ${LABEL_VAR}`} style={{ width: `calc(var(--label-w) + ${width}px)` }}>
           {/* Sticky labels — they stay put while the year scrolls past. */}
@@ -136,7 +173,18 @@ export function YearByHabit({
             <div className="h-5" />
             <div style={{ display: "flex", flexDirection: "column", gap: ROW_GAP }}>
               {rows.map((row, index) =>
-                row.kind === "heading" ? (
+                row.kind === "notes" ? (
+                  <div
+                    key={row.key}
+                    className="flex items-center gap-1.5 overflow-hidden"
+                    style={{ height: metrics.rowHeight, marginBottom: HEADING_GAP }}
+                  >
+                    <PenLine size={10} className="shrink-0 text-ink-muted" strokeWidth={2.4} />
+                    <span className="truncate text-[11px] font-medium leading-none text-ink-soft">
+                      Notes
+                    </span>
+                  </div>
+                ) : row.kind === "heading" ? (
                   <button
                     key={row.key}
                     type="button"
@@ -206,6 +254,36 @@ export function YearByHabit({
 
               <div style={{ display: "flex", flexDirection: "column", gap: ROW_GAP }}>
                 {rows.map((row, index) => {
+                  if (row.kind === "notes") {
+                    return (
+                      <div
+                        key={row.key}
+                        className="flex"
+                        style={{ gap: CELL_GAP, marginBottom: HEADING_GAP }}
+                      >
+                        {days.map((date) => (
+                          <span
+                            key={date}
+                            data-date={date}
+                            data-row="notes"
+                            className="shrink-0 rounded-[2px] transition-colors duration-150"
+                            style={{
+                              width: metrics.cellWidth,
+                              height: metrics.rowHeight,
+                              // Neutral ink, so a written day reads as texture
+                              // rather than competing with the habit colours.
+                              background: notedDays.has(date)
+                                ? "var(--ink-soft)"
+                                : isFuture(date)
+                                  ? "var(--cell-empty-off)"
+                                  : "var(--cell-empty)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
+
                   if (row.kind === "heading") {
                     // A hairline keeps groups legible across the full width.
                     return (

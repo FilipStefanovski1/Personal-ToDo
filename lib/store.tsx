@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { MAX_NOTE_LENGTH } from "@/types";
 import type {
   AppData,
   AppSettings,
@@ -59,6 +60,8 @@ interface StoreValue {
 
   /** All marked sick days, for passing into the stats functions. */
   sickDaySet: ReadonlySet<DateKey>;
+  noteOn: (date: DateKey) => string;
+  setNote: (date: DateKey, text: string) => void;
   isSickDay: (date: DateKey) => boolean;
   setSickDay: (date: DateKey, sick: boolean) => void;
   toggleSickDay: (date: DateKey) => void;
@@ -98,6 +101,7 @@ const EMPTY_DATA: AppData = {
   habits: [],
   completions: {},
   sickDays: [],
+  notes: {},
   settings: { ...DEFAULT_SETTINGS },
 };
 
@@ -191,6 +195,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     [isCompleted, setCompletion],
   );
+
+  const noteOn = useCallback((date: DateKey) => data.notes[date] ?? "", [data.notes]);
+
+  const setNote = useCallback((date: DateKey, text: string) => {
+    if (isFuture(date)) return;
+    const trimmed = text.trim().slice(0, MAX_NOTE_LENGTH);
+    setData((prev) => {
+      if ((prev.notes[date] ?? "") === trimmed) return prev;
+      const notes = { ...prev.notes };
+      // An emptied note is a deletion, not an empty string on the record.
+      if (trimmed) notes[date] = trimmed;
+      else delete notes[date];
+      return { ...prev, notes };
+    });
+  }, []);
 
   const sickDaySet = useMemo(() => new Set(data.sickDays), [data.sickDays]);
 
@@ -408,7 +427,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   /** Wipes history but keeps the categories and items themselves. */
   const clearHistory = useCallback(() => {
-    setData((prev) => ({ ...prev, completions: {}, sickDays: [] }));
+    setData((prev) => ({ ...prev, completions: {}, sickDays: [], notes: {} }));
   }, []);
 
   const categories = useMemo(
@@ -451,6 +470,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       toggleCompletion,
       setCompletion,
       sickDaySet,
+      noteOn,
+      setNote,
       isSickDay,
       setSickDay,
       toggleSickDay,
@@ -475,7 +496,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [
       ready, data, categories, activeCategories, habits, activeHabits, habitsIn,
       isCompleted, completionsOn, toggleCompletion, setCompletion,
-      sickDaySet, isSickDay, setSickDay, toggleSickDay,
+      sickDaySet, noteOn, setNote, isSickDay, setSickDay, toggleSickDay,
       addCategory, updateCategory, deleteCategory, setCategoryArchived, toggleCollapsed,
       moveCategory, reorderCategory,
       addHabit, updateHabit, deleteHabit, setArchived, moveHabit, reorderHabit,

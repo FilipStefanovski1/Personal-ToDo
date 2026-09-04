@@ -30,7 +30,15 @@ interface Column {
  * several completed habits split into flat colour bands, so a full day reads
  * as a small striped tile.
  */
-export function YearCombined({ year, habits }: { year: number; habits: Habit[] }) {
+export function YearCombined({
+  year,
+  habits,
+  onSelectDay,
+}: {
+  year: number;
+  habits: Habit[];
+  onSelectDay: (date: DateKey) => void;
+}) {
   const { completionsOn, settings } = useStore();
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -110,6 +118,16 @@ export function YearCombined({ year, habits }: { year: number; habits: Habit[] }
     [completionsOn, habitById],
   );
 
+  /** A cell click opens that whole day rather than just describing it. */
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>("[data-date]");
+      if (!target) return;
+      onSelectDay(target.dataset.date!);
+    },
+    [onSelectDay],
+  );
+
   const weekdayLabels = useMemo(
     () => Array.from({ length: 7 }, (_, i) => DAY_INITIALS[(i + weekStartsOn) % 7]),
     [weekStartsOn],
@@ -121,7 +139,7 @@ export function YearCombined({ year, habits }: { year: number; habits: Habit[] }
         className="tidy-scroll overflow-x-auto pb-2"
         onMouseMove={handlePointer}
         onMouseLeave={() => setTooltip(null)}
-        onClick={handlePointer}
+        onClick={handleClick}
       >
         <div className="flex" style={{ gap: GAP }}>
           {/* Weekday gutter — every other label, GitHub-style, to stay uncluttered */}

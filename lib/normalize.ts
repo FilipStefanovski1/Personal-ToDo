@@ -5,10 +5,12 @@ import type {
   CompletionMap,
   DateKey,
   GoalType,
+  NoteMap,
   Habit,
   HabitSchedule,
   Weekday,
 } from "@/types";
+import { MAX_NOTE_LENGTH } from "@/types";
 import { isValidDateKey } from "./dates";
 import { DEFAULT_COLOR, isValidHex } from "./colors";
 
@@ -18,8 +20,9 @@ import { DEFAULT_COLOR, isValidHex } from "./colors";
  * earlier versions has its generated completions stripped on load.
  * v3 → v4 added sick days; purely additive, so no migration step is needed —
  * data without the field just normalizes to an empty list.
+ * v4 → v5 added day notes; also purely additive.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /** Category used for habits that arrive without one (v1 data, sloppy imports). */
 export const FALLBACK_CATEGORY_NAME = "Other";
@@ -117,6 +120,19 @@ export function normalizeCompletions(input: unknown, habitIds: Set<string>): Com
   return out;
 }
 
+/** Trimmed, length-capped notes on valid dates. Empty notes aren't stored. */
+export function normalizeNotes(input: unknown): NoteMap {
+  const out: NoteMap = {};
+  if (!input || typeof input !== "object") return out;
+
+  for (const [dateKey, value] of Object.entries(input as Record<string, unknown>)) {
+    if (!isValidDateKey(dateKey) || typeof value !== "string") continue;
+    const text = value.trim().slice(0, MAX_NOTE_LENGTH);
+    if (text) out[dateKey] = text;
+  }
+  return out;
+}
+
 /** Deduped, valid date keys only — bad entries are dropped, not fatal. */
 export function normalizeSickDays(input: unknown): DateKey[] {
   if (!Array.isArray(input)) return [];
@@ -199,6 +215,7 @@ export function normalizeAppData(input: unknown): AppData {
     habits: orderedHabits,
     completions: normalizeCompletions(raw.completions, habitIds),
     sickDays: normalizeSickDays(raw.sickDays),
+    notes: normalizeNotes(raw.notes),
     settings: normalizeSettings(raw.settings),
   };
 }

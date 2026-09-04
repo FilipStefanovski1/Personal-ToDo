@@ -19,21 +19,33 @@ import { Portal } from "@/components/ui/Portal";
 export function SickDayToggle({
   active,
   onToggle,
+  variant = "floating",
 }: {
   active: boolean;
   onToggle: () => void;
+  /**
+   * "floating" docks it to the viewport corner. "inline" keeps it in normal
+   * flow — used inside the day sheet, where a fixed pill would sit behind the
+   * dialog's own overlay.
+   */
+  variant?: "floating" | "inline";
 }) {
-  return (
-    <Portal>
+  const floating = variant === "floating";
+
+  const button = (
     <button
       type="button"
       onClick={onToggle}
       aria-pressed={active}
       aria-label={`Feeling sick, ${active ? "marked" : "not marked"}`}
       className={[
-        "fixed z-40 flex items-center gap-2 rounded-full border pl-2.5 pr-4 py-2.5",
-        "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6",
-        "shadow-[0_6px_20px_rgba(0,0,0,0.16)] backdrop-blur-sm",
+        "flex items-center gap-2 rounded-full border pl-2.5 pr-4 py-2.5",
+        floating
+          ? [
+              "fixed z-40 shadow-[0_6px_20px_rgba(0,0,0,0.16)] backdrop-blur-sm",
+              "bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6",
+            ].join(" ")
+          : "",
         "transition-all duration-200 active:scale-[0.96]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E5484D]",
         active
@@ -54,6 +66,7 @@ export function SickDayToggle({
         {active ? "Marked sick" : "Feeling sick"}
       </span>
     </button>
-    </Portal>
   );
+
+  return floating ? <Portal>{button}</Portal> : button;
 }

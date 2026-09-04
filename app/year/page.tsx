@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -21,6 +21,7 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { DaySheet } from "@/components/habits/DaySheet";
 
 type Mode = "byHabit" | "combined";
 type Detail = "categories" | "items";
@@ -31,6 +32,9 @@ export default function YearPage() {
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [mode, setMode] = useState<Mode>("byHabit");
   const [detail, setDetail] = useState<Detail>("categories");
+  const [openDay, setOpenDay] = useState<string | null>(null);
+
+  const closeDay = useCallback(() => setOpenDay(null), []);
 
   const shownCategories = useMemo(
     () => (settings.showArchived ? categories : activeCategories),
@@ -154,9 +158,14 @@ export default function YearPage() {
             ) : null}
 
             {mode === "byHabit" ? (
-              <YearByHabit year={year} categories={shownCategories} habits={shownHabits} />
+              <YearByHabit
+                year={year}
+                categories={shownCategories}
+                habits={shownHabits}
+                onSelectDay={setOpenDay}
+              />
             ) : (
-              <YearCombined year={year} habits={shownHabits} />
+              <YearCombined year={year} habits={shownHabits} onSelectDay={setOpenDay} />
             )}
           </Card>
 
@@ -191,6 +200,8 @@ export default function YearPage() {
           </section>
         </>
       )}
+
+      <DaySheet date={openDay} onClose={closeDay} onNavigate={setOpenDay} />
     </div>
   );
 }

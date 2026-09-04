@@ -71,6 +71,12 @@ export interface HabitCompletion {
  */
 export type CompletionMap = Record<DateKey, string[]>;
 
+/** Free-text day notes, indexed by date. Empty notes are never stored. */
+export type NoteMap = Record<DateKey, string>;
+
+/** Longest note we'll store. Generous for a line or two, bounded for storage. */
+export const MAX_NOTE_LENGTH = 500;
+
 export type ThemePreference = "light" | "dark" | "system";
 export type CellSize = "sm" | "md" | "lg";
 
@@ -96,6 +102,13 @@ export interface AppData {
    * completion; only the *requirement* is waived.
    */
   sickDays: DateKey[];
+  /**
+   * A short free-text note per date. This is what makes a year worth looking
+   * back at: completions record *that* something happened, notes record
+   * *what* — "squat PR", "Solana event", "felt wrecked". Optional by design;
+   * nothing in the app ever asks for one.
+   */
+  notes: NoteMap;
   settings: AppSettings;
 }
 
@@ -108,6 +121,7 @@ export interface ExportBundle {
   habits: Habit[];
   completions: HabitCompletion[];
   sickDays: DateKey[];
+  notes: NoteMap;
   settings: AppSettings;
 }
 

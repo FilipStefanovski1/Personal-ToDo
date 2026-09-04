@@ -104,6 +104,7 @@ export function createSeedData(): AppData {
     habits,
     completions: {},
     sickDays: [],
+    notes: {},
     settings: { ...DEFAULT_SETTINGS },
   };
 }

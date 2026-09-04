@@ -22,6 +22,7 @@ export function toExportBundle(data: AppData): ExportBundle {
     habits: data.habits,
     completions,
     sickDays: data.sickDays,
+    notes: data.notes,
     settings: data.settings,
   };
 }
@@ -70,6 +71,7 @@ export function parseImport(json: string): AppData {
     habits: raw.habits,
     completions,
     sickDays: raw.sickDays,
+    notes: raw.notes,
     settings: raw.settings,
   });
 }
