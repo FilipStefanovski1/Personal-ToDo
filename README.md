@@ -33,6 +33,18 @@ Import the repository on Vercel and deploy. It's a stock Next.js App Router
 project: framework auto-detects, no build settings to change, and no environment
 variables to set.
 
+## Notes and variants
+
+Any day takes an optional short note — "squat PR", "Solana meetup". Completions
+record *that* something happened; notes record *what*, which is what makes a
+year worth scrolling back through. They surface as a strip across the year grid
+and as a readable list on the Month page. Nothing ever asks you for one.
+
+A habit can define optional variants — Gym as Push / Pull / Legs. Completing
+stays exactly one tap; the variant chips appear only after it's checked off, so
+labelling is an optional second tap. The year tooltip then reads "Gym — Pull",
+and the habit's stats card breaks the year down per variant.
+
 ## Categories and goals
 
 A category is a visual grouping with a daily goal. It is never itself completed
@@ -53,6 +65,12 @@ shown there.
 Goal type also drives the day streak on Today and the consistency figure on
 Year: one basketball session satisfies Activity, exactly as an "any" group is
 meant to work.
+
+A category is only judged on days when at least one of its items is on a
+*fixed* schedule (every day, or specific weekdays). Items set to N× per week
+stay tappable every day but carry a weekly target rather than a daily
+obligation — "train 3× a week" shouldn't fail four times a week, and a rest day
+shouldn't break a streak. Seeded Activity works this way.
 
 ## Feeling sick
 
@@ -76,20 +94,25 @@ list on `AppData` that every stats function threads through as an optional
   counts (`SUPPLEMENTS 4 / 5`, `ACTIVITY 2 activities today`). Hierarchy comes
   from spacing and hairlines rather than nested cards. A strip of the last 14
   days sits above it so fixing a day you forgot to tick never means leaving the
-  screen.
-- **Month** — a conventional calendar with tiny colour blocks per day. Click any
-  past day to edit that day's checklist. Future days are not clickable.
+  screen, and a week strip below shows how the current week is going —
+  measured by goal attainment, which nothing else answers.
+- **Month** — where you read your life back. Four numbers that each answer a
+  different question (how much, how often, how well, what you leaned on), a
+  calendar where each day carries a colour stripe and a mark if it has a note,
+  and that month's notes as a readable list. Click any past day to edit it.
 - **Year** — the main event. Two layouts:
   - **By item** — one row of 365 cells per individual item, in that item's
     colour, grouped under understated category headings that collapse. Month
-    labels across the top, sticky labels, and a marker on today. Opens scrolled
-    to the current month.
+    labels and separators, sticky labels, and a marker on today. Opens scrolled
+    to the current month. A neutral strip along the top marks the days that
+    carry a note. Clicking any cell opens that whole day.
   - **Combined** — a 53×7 week grid where days with several completed items
     split into flat colour bands.
 - **Habits** — create categories and the items inside them. Rename, re-icon,
-  recolour, archive, delete, change the schedule, change the group goal, and
-  reorder both levels by drag-and-drop (with arrow buttons alongside, since
-  dragging isn't available on touch).
+  recolour, archive, delete, change the schedule, change the group goal, define
+  optional variants (Gym → Push / Pull / Legs), and reorder both levels by
+  drag-and-drop (with arrow buttons alongside, since dragging isn't available
+  on touch).
 - **Settings** — theme, week start, cell size, archived visibility, and JSON
   export / import / reset.
 
@@ -105,15 +128,16 @@ noise. A hex field is there for anything specific.
 app/                     routes: today (/), month, year, habits, settings
 components/
   habits/                checklist rows, category sections, editors, stats
-  calendar/              month grid
+  calendar/              month grid, month summary and journal
   year-grid/             the two year layouts + their geometry
   ui/                    Card, Button, Segmented, Switch, tooltip, …
 lib/
   dates.ts               local-timezone date keys (see below)
   schedule.ts            what's due when
   categories.ts          goal evaluation and derived category progress
-  stats.ts               streaks, rates, category stats, year summary
-  normalize.ts           validates any untrusted data into AppData; v1 → v2
+  stats.ts               streaks, rates, category/week/month/year summaries
+  normalize.ts           validates any untrusted data into AppData
+  migrations.ts          schema upgrades, applied on load only
   store.tsx              React context over the storage provider
   transfer.ts            export / import
 storage/
@@ -121,6 +145,7 @@ storage/
   localStorageProvider.ts
   index.ts               picks the active provider
 types/index.ts           Category, Habit, HabitCompletion, AppSettings, …
+tests/                   node --test suite, no framework
 ```
 
 `Category` and `Habit` are separate concepts. A habit carries a `categoryId`;
@@ -214,7 +239,25 @@ and a raw internal snapshot, and drops anything malformed rather than failing.
 open in Safari → Share → Add to Home Screen. It then launches standalone, with
 safe-area padding for the notch and home indicator.
 
+## Tests
+
+```bash
+npm run verify
+```
+
+Typecheck, tests and a production build. `npm test` alone runs the suite;
+`npm run test:tz` runs it across five timezones, which is the check that
+actually catches date bugs.
+
+No test framework and no build step — Node's built-in runner with native
+TypeScript stripping. `tests/resolve-hooks.mjs` bridges the `@/` alias so the
+real source is imported unmodified.
+
 ## Stack
 
 Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide icons.
-No other runtime dependencies.
+No other runtime dependencies, and no dev dependencies beyond the toolchain —
+the test suite runs on Node itself.
+
+See `DECISIONS.md` for the non-obvious architectural choices and why they're
+that way.
