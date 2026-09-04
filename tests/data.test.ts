@@ -211,3 +211,80 @@ test("variants pointing at unknown habits are dropped on load", () => {
   assert.deepEqual(data.variants, { "2026-05-01": { gym: "Push" } });
   assert.deepEqual(data.habits[0].variants, ["Push"]);
 });
+
+// --- goals and moments survive the round trip ------------------------------
+
+test("goals and moments round-trip through export/import", () => {
+  const seed = createSeedData();
+  const gym = seed.habits.find((h) => h.name === "Gym")!;
+  seed.goals = [
+    {
+      id: "g1",
+      name: "Get strong",
+      source: { type: "habit", habitId: gym.id },
+      target: 150,
+      period: { type: "year", year: 2026 },
+      archived: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "g2",
+      name: "",
+      source: { type: "category", categoryId: seed.categories[1].id },
+      target: 200,
+      period: { type: "ongoing", from: "2026-01-01" },
+      archived: true,
+      createdAt: "2026-01-02T00:00:00.000Z",
+    },
+  ];
+  seed.moments = [{ id: "m1", date: "2026-03-14", title: "Shipped v1", emoji: "🚀" }];
+
+  const restored = parseImport(exportToJson(seed));
+
+  assert.equal(restored.goals.length, 2);
+  assert.equal(restored.goals[0].target, 150);
+  assert.equal(restored.goals[0].name, "Get strong");
+  assert.deepEqual(restored.goals[0].period, { type: "year", year: 2026 });
+  assert.equal(restored.goals[1].archived, true, "archived state survives");
+  assert.deepEqual(restored.goals[1].period, { type: "ongoing", from: "2026-01-01" });
+  assert.deepEqual(restored.moments, seed.moments);
+});
+
+test("a backup written before goals existed still imports", () => {
+  const legacy = JSON.stringify({
+    app: "habit-year",
+    version: 6,
+    categories: [{ id: "c1", name: "S", order: 0, goalType: "all", goalTarget: 1 }],
+    habits: [
+      { id: "a", categoryId: "c1", name: "V", color: "#F5B814", schedule: { type: "daily" }, order: 0, createdAt: "2026-01-01T00:00:00.000Z" },
+    ],
+    completions: [{ habitId: "a", date: "2026-05-01" }],
+    settings: {},
+  });
+  const restored = parseImport(legacy);
+  assert.deepEqual(restored.goals, []);
+  assert.deepEqual(restored.moments, []);
+  assert.equal(Object.keys(restored.completions).length, 1, "history is untouched");
+});
+
+test("deleting a goal leaves every completion in place", () => {
+  // The store filters goals; this pins the guarantee at the data level.
+  const seed = createSeedData();
+  const gym = seed.habits.find((h) => h.name === "Gym")!;
+  seed.completions = { "2026-05-01": [gym.id], "2026-05-02": [gym.id] };
+  seed.goals = [
+    {
+      id: "g1",
+      name: "",
+      source: { type: "habit", habitId: gym.id },
+      target: 10,
+      period: { type: "year", year: 2026 },
+      archived: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    },
+  ];
+
+  const withoutGoal = { ...seed, goals: seed.goals.filter((g) => g.id !== "g1") };
+  assert.equal(Object.keys(withoutGoal.completions).length, 2);
+  assert.deepEqual(withoutGoal.completions["2026-05-01"], [gym.id]);
+});

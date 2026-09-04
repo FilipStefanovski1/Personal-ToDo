@@ -14,6 +14,7 @@ import {
 import { computeOverallStreak, computeWeekSummary } from "@/lib/stats";
 import { computeGoalProgress, goalColor, goalLabel, nudgeLabel } from "@/lib/goals";
 import { DEFAULT_COLOR } from "@/lib/colors";
+import { GoalReached } from "@/components/goals/GoalReached";
 import { TodayGoalNudge } from "@/components/goals/TodayGoalNudge";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { RecentDaysStrip } from "@/components/habits/RecentDaysStrip";
@@ -57,6 +58,17 @@ export default function TodayPage() {
       ),
     [activeCategories, activeHabits, data.completions, sickDaySet, settings.weekStartsOn],
   );
+
+  /**
+   * Goals whose target was reached today. Derived, so this appears the instant
+   * the tap that finished it lands and retires itself when the date rolls over.
+   */
+  const reachedToday = useMemo(() => {
+    const today = todayKey();
+    return activeGoals
+      .map((goal) => computeGoalProgress(goal, data.completions, habits))
+      .filter((p) => p.completedOn === today);
+  }, [activeGoals, data.completions, habits]);
 
   /**
    * At most one goal surfaces on Today, chosen as the one a single day would
@@ -153,6 +165,15 @@ export default function TodayPage() {
       {activeHabits.length > 0 ? (
         <WeekSummary summary={week} onSelectDay={setSelected} />
       ) : null}
+
+      {reachedToday.map((progress) => (
+        <GoalReached
+          key={progress.goal.id}
+          progress={progress}
+          label={goalLabel(progress.goal, habits, categories)}
+          color={goalColor(progress.goal.source, habits, DEFAULT_COLOR)}
+        />
+      ))}
 
       {focusGoal ? (
         <TodayGoalNudge

@@ -5,6 +5,7 @@ import type { Category, CompletionMap, Goal, Habit } from "@/types";
 import {
   collectYearHighlights,
   computeGoalProgress,
+  countNoun,
   goalDeltasForMonth,
   goalLabel,
   goalSourceExists,
@@ -509,4 +510,55 @@ test("highlights from another year are excluded", () => {
     "#000000",
   );
   assert.equal(highlights.length, 0);
+});
+
+// --- counting units -------------------------------------------------------
+
+test("a count of one is singular, so a recap never reads '+1 times'", () => {
+  const habitSource = { type: "habit", habitId: "gym" } as const;
+  const categorySource = { type: "category", categoryId: "c1" } as const;
+
+  assert.equal(countNoun(habitSource, 1), "time");
+  assert.equal(countNoun(habitSource, 2), "times");
+  assert.equal(countNoun(habitSource, 0), "times");
+  assert.equal(countNoun(categorySource, 1), "day");
+  assert.equal(countNoun(categorySource, 12), "days");
+});
+
+test("a month delta of one reads singular", () => {
+  const deltas = goalDeltasForMonth(
+    [goal({ target: 10 })],
+    { "2026-04-09": ["gym"] },
+    [habit("gym")],
+    [category()],
+    2026,
+    3,
+    "#000000",
+  );
+  assert.equal(deltas[0].gained, 1);
+  assert.equal(deltas[0].noun, "time");
+});
+
+// --- the day a goal lands -------------------------------------------------
+
+test("completedOn is the day the target was crossed, not the day it is read", () => {
+  // Today's date is irrelevant: the goal landed on the 3rd of March either way.
+  const completions = run("gym", "2026-03-01", 10);
+  const early = computeGoalProgress(goal({ target: 3 }), completions, [habit("gym")], "2026-03-03");
+  const later = computeGoalProgress(goal({ target: 3 }), completions, [habit("gym")], "2026-11-20");
+
+  assert.equal(early.completedOn, "2026-03-03");
+  assert.equal(later.completedOn, "2026-03-03");
+  assert.equal(later.status, "completed");
+});
+
+test("a goal not yet reached has no completion date", () => {
+  const progress = computeGoalProgress(
+    goal({ target: 50 }),
+    run("gym", "2026-03-01", 10),
+    [habit("gym")],
+    "2026-03-20",
+  );
+  assert.equal(progress.completedOn, null);
+  assert.equal(progress.status, "active");
 });

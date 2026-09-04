@@ -57,19 +57,24 @@ a history app shouldn't pretend unfinished goals didn't happen.
 Goals reference data and never own it: deleting a goal cannot touch a single
 completion, and editing a target only re-derives the numbers.
 
+The day a goal lands, Today says so once — a tinted card in the goal's own
+colour, no confetti, nothing to dismiss. It's derived from the date the target
+was crossed, so it appears on the tap that finished it and is gone tomorrow.
+
 ## Moments
 
 Days can carry a marked moment — "Shipped Aminta v1", "Ran my first 10K". On the
 Year page these interleave with goal milestones into one chronological
 **Highlights** list, so achievements read as things that happened rather than as
-analytics.
+analytics. On Month they sit in the journal alongside that day's note.
 
 ## Notes and variants
 
 Any day takes an optional short note — "squat PR", "Solana meetup". Completions
 record *that* something happened; notes record *what*, which is what makes a
 year worth scrolling back through. They surface as a strip across the year grid
-and as a readable list on the Month page. Nothing ever asks you for one.
+and, interleaved with that month's moments, as a readable list on the Month
+page. Nothing ever asks you for one.
 
 A habit can define optional variants — Gym as Push / Pull / Legs. Completing
 stays exactly one tap; the variant chips appear only after it's checked off, so
@@ -248,10 +253,11 @@ rather than showing a confident zero:
 
 Everything lives under the `habit-year:v1` localStorage key (the key name is
 kept for continuity; the schema inside is versioned separately and is now at
-v4). On a genuinely empty install the app seeds Supplements, Activity and Other
+v7). On a genuinely empty install the app seeds Supplements, Activity and Other
 with their items and **no history at all**. **Settings → Clear all history**
-resets every completion and every sick-day marker to zero while keeping the
-structure; **Reset everything** clears the lot.
+resets completions, notes, variants, sick days and moments to zero while keeping
+the structure — categories, items and goals survive, and the goals simply
+recount from nothing; **Reset everything** clears the lot.
 
 Migrations run on load from storage — never on import, since restoring a backup
 is an explicit act and that history must survive untouched:
@@ -267,6 +273,9 @@ is an explicit act and that history must survive untouched:
   on the install day, but it can never delete a real one.
 - **v3 → v4** — added sick days. Purely additive: data without the field just
   normalizes to an empty list, so no migration step is needed.
+- **v4 → v7** — day notes, habit variants, then goals and moments. All purely
+  additive in the same way: an older backup imports with the new fields empty
+  and every completion untouched.
 
 Because localStorage is per-browser and can be cleared by the browser itself,
 **Settings → Export JSON** is the backup. Import accepts both the export bundle

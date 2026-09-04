@@ -169,7 +169,8 @@ export default function SettingsPage() {
             <div className="min-w-0">
               <p className="text-[13.5px] font-semibold tracking-tight">Clear all history</p>
               <p className="text-[12.5px] text-ink-muted">
-                Wipes every completion back to zero, keeping your categories and items.
+                Wipes every completion, note and marked moment back to zero. Your categories,
+                items and goals stay — the goals simply recount from nothing.
               </p>
             </div>
             {confirming === "clear" ? (

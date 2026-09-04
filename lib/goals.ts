@@ -216,7 +216,7 @@ export function goalLabel(
 ): string {
   const typed = goal.name.trim();
   if (typed) return typed;
-  const unit = goal.source.type === "category" ? "days" : "times";
+  const unit = countNoun(goal.source, goal.target);
   return `${goalSourceName(goal.source, habits, categories)} ${goal.target} ${unit}`;
 }
 
@@ -290,7 +290,6 @@ export function collectYearHighlights(
   const out: YearHighlight[] = [];
 
   for (const progress of goalProgress) {
-    const noun = progress.goal.source.type === "category" ? "days" : "times";
     const name = goalSourceName(progress.goal.source, habits, categories);
     const color = goalColor(progress.goal.source, habits, fallbackColor);
 
@@ -305,8 +304,8 @@ export function collectYearHighlights(
         // times" reads as a thing that happened where "75 times of Gym" reads
         // as a database row.
         title: milestone.isTarget
-          ? `${name} goal reached — ${milestone.value} ${noun}`
-          : `${name} — ${milestone.value} ${noun}`,
+          ? `${name} goal reached — ${milestone.value} ${countNoun(progress.goal.source, milestone.value)}`
+          : `${name} — ${milestone.value} ${countNoun(progress.goal.source, milestone.value)}`,
         color,
       });
     }
@@ -325,6 +324,17 @@ export function collectYearHighlights(
 
   // Newest first: mid-year the recent entries are the ones you're looking for.
   return out.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
+}
+
+/**
+ * The unit a source is counted in. Habits count completions ("times"); a
+ * category counts days it had any activity ("days"). Singular when the count
+ * is one, so a recap never reads "+1 times".
+ */
+export function countNoun(source: GoalSource, count: number): string {
+  const plural = source.type === "category" ? "days" : "times";
+  if (count !== 1) return plural;
+  return source.type === "category" ? "day" : "time";
 }
 
 /** What a goal gained during one month, for the month's recap. */
@@ -377,7 +387,7 @@ export function goalDeltasForMonth(
       name: goalSourceName(goal.source, habits, categories),
       color: goalColor(goal.source, habits, fallbackColor),
       gained,
-      noun: goal.source.type === "category" ? "days" : "times",
+      noun: countNoun(goal.source, gained),
     });
   }
   return out.sort((a, b) => b.gained - a.gained);

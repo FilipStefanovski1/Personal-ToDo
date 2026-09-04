@@ -6,6 +6,7 @@ import type { Goal, GoalProgress } from "@/types";
 import { useStore } from "@/lib/store";
 import {
   computeGoalProgress,
+  countNoun,
   goalColor,
   goalLabel,
   goalSourceExists,
@@ -141,8 +142,7 @@ export default function GoalsPage() {
                                   milestone.isTarget ? "font-semibold text-ink" : "text-ink-soft"
                                 }
                               >
-                                {milestone.value}{" "}
-                                {goal.source.type === "category" ? "days" : "times"}
+                                {milestone.value} {countNoun(goal.source, milestone.value)}
                               </span>
                               <span className="tabular text-ink-muted">
                                 {formatShortDate(milestone.date)}

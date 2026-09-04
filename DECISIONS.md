@@ -3,6 +3,24 @@
 Short log of choices that aren't obvious from the code, so a future session
 doesn't re-litigate them. Newest first.
 
+## A goal landing is acknowledged for exactly one day
+
+Reaching a target used to be a number quietly ticking over. Today now shows a
+tinted card in the goal's own colour — "Basketball 22 times · Reached today" —
+with no confetti and nothing to dismiss.
+
+It renders off the derived `completedOn === today`, which is why there is no
+state for it: it appears the instant the tap that finished the goal lands, it
+survives a reload on the same day, and it retires itself at midnight. Storing a
+"seen" flag would have been the obvious build and the wrong one — it would need
+migrating, and it would let a reached goal go unmentioned.
+
+## Notes and moments are one journal, not two lists
+
+Moments were readable on Year but invisible on Month, which is the page whose
+whole job is reading a month back. `MonthJournal` now interleaves both by date:
+a day that carries a moment and a note shows both under one date, moment first.
+
 ## Goals reference data; they never own it
 
 A goal stores only a source, a target and a period. Progress, milestones,
