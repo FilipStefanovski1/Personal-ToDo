@@ -3,6 +3,16 @@
 Short log of choices that aren't obvious from the code, so a future session
 doesn't re-litigate them. Newest first.
 
+## "On this day" surfaces one past year, never a scrollback
+
+Today gained a quiet line — the most recent past year with anything recorded
+on this same month/day, from `onThisDay()` in `lib/recap.ts`. It deliberately
+returns at most one year, not every year that has something: the brief for
+this screen has always been "not a productivity guilt machine," and a running
+list of "3 years ago… 2 years ago… last year" would turn a checklist into a
+scrollback. Feb 29 on a non-leap year has no candidate date to check and is
+simply skipped, not substituted with anything.
+
 ## The Year Review is a reducer library plus a page, not a stored recap
 
 `lib/recap.ts` holds every calculation the review needs — monthly breakdown,

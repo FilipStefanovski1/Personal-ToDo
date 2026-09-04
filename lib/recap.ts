@@ -422,4 +422,53 @@ export function habitStories(
   return stories.sort((a, b) => b.totalCompletions - a.totalCompletions).slice(0, limit);
 }
 
+export interface OnThisDayEntry {
+  year: number;
+  date: DateKey;
+  completedNames: string[];
+  note: string | null;
+  moments: Moment[];
+}
+
+/**
+ * The most recent past year that has something recorded on this same
+ * month/day, or null if none of the last few years do. Only one year is
+ * ever returned — Today is meant to stay quiet, so this is a single quiet
+ * line, not a scrollback through history.
+ *
+ * Feb 29 on a year that wasn't a leap year simply has no entry to find; nothing
+ * special is substituted for it.
+ */
+export function onThisDay(
+  todayDate: DateKey,
+  habits: Habit[],
+  completions: CompletionMap,
+  notes: NoteMap,
+  moments: Moment[],
+  yearsBack = 5,
+): OnThisDayEntry | null {
+  const [y, m, d] = todayDate.split("-").map(Number);
+  const habitById = new Map(habits.map((h) => [h.id, h]));
+
+  for (let back = 1; back <= yearsBack; back++) {
+    const year = y - back;
+    const daysInThatMonth = new Date(year, m, 0).getDate();
+    if (d > daysInThatMonth) continue; // e.g. Feb 29 on a non-leap year
+
+    const key = `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const ids = completions[key] ?? [];
+    const note = notes[key] ?? null;
+    const dayMoments = moments.filter((moment) => moment.date === key);
+    if (ids.length === 0 && !note && dayMoments.length === 0) continue;
+
+    const completedNames = ids
+      .map((id) => habitById.get(id)?.name)
+      .filter((name): name is string => Boolean(name));
+
+    return { year, date: key, completedNames, note, moments: dayMoments };
+  }
+
+  return null;
+}
+
 export { MONTH_NAMES };

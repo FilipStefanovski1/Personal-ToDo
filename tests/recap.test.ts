@@ -10,6 +10,7 @@ import {
   habitStories,
   halfYearConsistency,
   notesInYear,
+  onThisDay,
   strongestMonth,
   weekdayPattern,
 } from "@/lib/recap";
@@ -416,4 +417,36 @@ test("stories rank by total completions and respect the limit", () => {
     2,
   );
   assert.deepEqual(stories.map((s) => s.habit.id), ["a", "b"]);
+});
+
+// --- on this day ------------------------------------------------
+
+test("on this day finds the most recent past year with a record", () => {
+  const completions: CompletionMap = {
+    "2024-09-04": ["a"],
+    "2023-09-04": ["a"],
+  };
+  const entry = onThisDay("2026-09-04", [habit("a")], completions, {}, []);
+  assert.equal(entry?.year, 2024, "2025 had nothing, so 2024 is the most recent match");
+  assert.deepEqual(entry?.completedNames, ["a"]);
+});
+
+test("on this day returns null when nothing happened in range", () => {
+  const entry = onThisDay("2026-09-04", [habit("a")], {}, {}, []);
+  assert.equal(entry, null);
+});
+
+test("on this day skips Feb 29 on a year that wasn't a leap year", () => {
+  // 2024 was a leap year; 2025 and 2023 were not.
+  const completions: CompletionMap = { "2020-02-29": ["a"] };
+  const entry = onThisDay("2024-02-29", [habit("a")], completions, {}, [], 6);
+  assert.equal(entry?.year, 2020, "the nearer non-leap years have no Feb 29 to check");
+});
+
+test("on this day surfaces a note and a moment even with no completions", () => {
+  const notes: NoteMap = { "2025-05-01": "quiet day" };
+  const moments = [{ id: "m1", date: "2025-05-01", title: "Started something", emoji: "🌱" }];
+  const entry = onThisDay("2026-05-01", [], {}, notes, moments);
+  assert.equal(entry?.note, "quiet day");
+  assert.equal(entry?.moments.length, 1);
 });

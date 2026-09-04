@@ -2,7 +2,7 @@
 
 import type { Category, Habit } from "@/types";
 import type { GoalsByResult } from "@/lib/recap";
-import { goalColor, goalLabel } from "@/lib/goals";
+import { goalColor, goalLabel, goalSourceExists } from "@/lib/goals";
 import { DEFAULT_COLOR } from "@/lib/colors";
 import { GoalRow } from "@/components/goals/GoalRow";
 import { Card, SectionLabel } from "@/components/ui/Card";
@@ -42,6 +42,7 @@ export function RecapGoals({
                 progress={progress}
                 label={goalLabel(progress.goal, habits, categories)}
                 color={goalColor(progress.goal.source, habits, DEFAULT_COLOR)}
+                detached={!goalSourceExists(progress.goal, habits, categories)}
               />
             ))}
           </Card>

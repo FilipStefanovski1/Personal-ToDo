@@ -131,7 +131,10 @@ list on `AppData` that every stats function threads through as an optional
   from spacing and hairlines rather than nested cards. A strip of the last 14
   days sits above it so fixing a day you forgot to tick never means leaving the
   screen, and a week strip below shows how the current week is going —
-  measured by goal attainment, which nothing else answers.
+  measured by goal attainment, which nothing else answers. When a past year
+  has anything recorded on this same date, one quiet "On this day" line names
+  the most recent one — never a list of every year, since Today is meant to
+  stay a checklist, not a scrollback.
 - **Month** — where you read your life back. Four numbers that each answer a
   different question (how much, how often, how well, what you leaned on), a
   calendar where each day carries a colour stripe and a mark if it has a note,

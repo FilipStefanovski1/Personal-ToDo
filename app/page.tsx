@@ -13,9 +13,11 @@ import {
 } from "@/lib/dates";
 import { computeOverallStreak, computeWeekSummary } from "@/lib/stats";
 import { computeGoalProgress, goalColor, goalLabel, nudgeLabel } from "@/lib/goals";
+import { onThisDay } from "@/lib/recap";
 import { DEFAULT_COLOR } from "@/lib/colors";
 import { GoalReached } from "@/components/goals/GoalReached";
 import { TodayGoalNudge } from "@/components/goals/TodayGoalNudge";
+import { OnThisDay } from "@/components/recap/OnThisDay";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { RecentDaysStrip } from "@/components/habits/RecentDaysStrip";
 import { WeekSummary } from "@/components/habits/WeekSummary";
@@ -101,6 +103,11 @@ export default function TodayPage() {
     return Object.assign(fixableToday, { doneToday });
   }, [activeGoals, data.completions, habits, isCompleted]);
 
+  const onThisDayEntry = useMemo(
+    () => onThisDay(selected, habits, data.completions, data.notes, data.moments),
+    [selected, habits, data.completions, data.notes, data.moments],
+  );
+
   const yearCount = useMemo(() => {
     const year = String(new Date().getFullYear());
     let total = 0;
@@ -183,6 +190,8 @@ export default function TodayPage() {
           doneToday={(focusGoal as { doneToday?: boolean }).doneToday ?? false}
         />
       ) : null}
+
+      {onThisDayEntry ? <OnThisDay entry={onThisDayEntry} /> : null}
 
       {activeHabits.length > 0 ? (
         <Link
