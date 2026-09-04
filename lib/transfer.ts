@@ -24,6 +24,8 @@ export function toExportBundle(data: AppData): ExportBundle {
     sickDays: data.sickDays,
     notes: data.notes,
     variants: data.variants,
+    goals: data.goals,
+    moments: data.moments,
     settings: data.settings,
   };
 }
@@ -74,6 +76,8 @@ export function parseImport(json: string): AppData {
     sickDays: raw.sickDays,
     notes: raw.notes,
     variants: raw.variants,
+    goals: raw.goals,
+    moments: raw.moments,
     settings: raw.settings,
   });
 }

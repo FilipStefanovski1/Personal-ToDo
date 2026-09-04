@@ -5,13 +5,22 @@ import type {
   CompletionMap,
   DateKey,
   GoalType,
+  Goal,
+  GoalPeriod,
+  GoalSource,
+  Moment,
   NoteMap,
   VariantMap,
   Habit,
   HabitSchedule,
   Weekday,
 } from "@/types";
-import { MAX_NOTE_LENGTH, MAX_VARIANTS, MAX_VARIANT_LENGTH } from "@/types";
+import {
+  MAX_MOMENT_TITLE_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_VARIANTS,
+  MAX_VARIANT_LENGTH,
+} from "@/types";
 import { isValidDateKey } from "./dates";
 import { DEFAULT_COLOR, isValidHex } from "./colors";
 
@@ -24,8 +33,10 @@ import { DEFAULT_COLOR, isValidHex } from "./colors";
  * v4 → v5 added day notes; also purely additive.
  * v5 → v6 added habit variants (Gym → Push/Pull/Legs). Stored in a side table
  * so the completion records themselves were never touched.
+ * v6 → v7 added goals and moments. Goals only *reference* habits and
+ * categories, so nothing about the completion history changed.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /** Category used for habits that arrive without one (v1 data, sloppy imports). */
 export const FALLBACK_CATEGORY_NAME = "Other";
@@ -160,6 +171,91 @@ export function normalizeVariants(input: unknown, habitIds: Set<string>): Varian
   return out;
 }
 
+function normalizeGoalSource(input: unknown): GoalSource | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as Record<string, unknown>;
+  if (raw.type === "habit" && typeof raw.habitId === "string" && raw.habitId) {
+    return { type: "habit", habitId: raw.habitId };
+  }
+  if (raw.type === "category" && typeof raw.categoryId === "string" && raw.categoryId) {
+    return { type: "category", categoryId: raw.categoryId };
+  }
+  return null;
+}
+
+function normalizeGoalPeriod(input: unknown): GoalPeriod {
+  const fallback: GoalPeriod = { type: "year", year: new Date().getFullYear() };
+  if (!input || typeof input !== "object") return fallback;
+  const raw = input as Record<string, unknown>;
+
+  if (raw.type === "custom" && isValidDateKey(raw.from) && isValidDateKey(raw.to)) {
+    return { type: "custom", from: raw.from, to: raw.to };
+  }
+  if (raw.type === "ongoing" && isValidDateKey(raw.from)) {
+    return { type: "ongoing", from: raw.from };
+  }
+  if (raw.type === "year" && typeof raw.year === "number" && Number.isFinite(raw.year)) {
+    const year = Math.round(raw.year);
+    if (year >= 1970 && year <= 3000) return { type: "year", year };
+  }
+  return fallback;
+}
+
+/**
+ * Goals whose source no longer exists are kept, not dropped — a deleted habit
+ * shouldn't silently erase the goal that referenced it. The UI shows them as
+ * detached so the choice to remove one stays the user's.
+ */
+export function normalizeGoals(input: unknown): Goal[] {
+  if (!Array.isArray(input)) return [];
+  const out: Goal[] = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as Record<string, unknown>;
+    const source = normalizeGoalSource(raw.source);
+    if (!source) continue;
+
+    const target =
+      typeof raw.target === "number" && Number.isFinite(raw.target)
+        ? Math.max(1, Math.round(raw.target))
+        : 1;
+
+    out.push({
+      id: typeof raw.id === "string" && raw.id ? raw.id : createId("g"),
+      name: typeof raw.name === "string" ? raw.name.trim().slice(0, 60) : "",
+      source,
+      target,
+      period: normalizeGoalPeriod(raw.period),
+      archived: raw.archived === true,
+      createdAt:
+        typeof raw.createdAt === "string" && !Number.isNaN(Date.parse(raw.createdAt))
+          ? raw.createdAt
+          : new Date().toISOString(),
+    });
+  }
+  return out;
+}
+
+/** Moments on valid dates, newest first. */
+export function normalizeMoments(input: unknown): Moment[] {
+  if (!Array.isArray(input)) return [];
+  const out: Moment[] = [];
+  for (const entry of input) {
+    if (!entry || typeof entry !== "object") continue;
+    const raw = entry as Record<string, unknown>;
+    if (!isValidDateKey(raw.date)) continue;
+    const title = typeof raw.title === "string" ? raw.title.trim().slice(0, MAX_MOMENT_TITLE_LENGTH) : "";
+    if (!title) continue;
+    out.push({
+      id: typeof raw.id === "string" && raw.id ? raw.id : createId("m"),
+      date: raw.date,
+      title,
+      emoji: typeof raw.emoji === "string" && raw.emoji ? raw.emoji : "✦",
+    });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** Trimmed, length-capped notes on valid dates. Empty notes aren't stored. */
 export function normalizeNotes(input: unknown): NoteMap {
   const out: NoteMap = {};
@@ -257,6 +353,8 @@ export function normalizeAppData(input: unknown): AppData {
     sickDays: normalizeSickDays(raw.sickDays),
     notes: normalizeNotes(raw.notes),
     variants: normalizeVariants(raw.variants, habitIds),
+    goals: normalizeGoals(raw.goals),
+    moments: normalizeMoments(raw.moments),
     settings: normalizeSettings(raw.settings),
   };
 }

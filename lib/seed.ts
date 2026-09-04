@@ -117,6 +117,8 @@ export function createSeedData(): AppData {
     sickDays: [],
     notes: {},
     variants: {},
+    goals: [],
+    moments: [],
     settings: { ...DEFAULT_SETTINGS },
   };
 }

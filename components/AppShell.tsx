@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Grid3x3, ListChecks, Settings, Sun } from "lucide-react";
+import { CalendarDays, Grid3x3, ListChecks, Settings, Sun, Target } from "lucide-react";
 
 const NAV = [
   { href: "/", label: "Today", icon: Sun },
   { href: "/month", label: "Month", icon: CalendarDays },
   { href: "/year", label: "Year", icon: Grid3x3 },
+  { href: "/goals", label: "Goals", icon: Target },
   { href: "/habits", label: "Habits", icon: ListChecks },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
@@ -66,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-canvas/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-6">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = isActive(pathname, href);
             return (
@@ -80,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 ].join(" ")}
               >
                 <Icon size={20} strokeWidth={active ? 2.4 : 1.9} />
-                <span className="text-[10.5px] font-medium tracking-tight">{label}</span>
+                <span className="text-[10px] font-medium tracking-tight">{label}</span>
               </Link>
             );
           })}

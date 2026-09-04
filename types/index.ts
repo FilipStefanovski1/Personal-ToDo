@@ -98,6 +98,108 @@ export const MAX_VARIANT_LENGTH = 20;
 /** Longest note we'll store. Generous for a line or two, bounded for storage. */
 export const MAX_NOTE_LENGTH = 500;
 
+/**
+ * A moment worth remembering — "Shipped Aminta v1", "Ran first 10K".
+ *
+ * Deliberately separate from day notes rather than a flag on one. A note is
+ * "what happened today", written often and read a month later; a moment is
+ * rare, titled, and belongs to the *year's* story. Merging them would mean
+ * every note needing an is-this-important flag, and every moment carrying a
+ * field it doesn't want. Both are keyed by date, so a day can have either or
+ * both.
+ */
+export interface Moment {
+  id: string;
+  date: DateKey;
+  title: string;
+  emoji: string;
+}
+
+export const MAX_MOMENT_TITLE_LENGTH = 80;
+
+/**
+ * What a goal counts. A goal *references* data; it never owns it. Deleting a
+ * goal can never touch a completion, and editing one can never rewrite
+ * history — progress is always recomputed from the underlying records.
+ */
+export type GoalSource =
+  /** Days this habit was completed. */
+  | { type: "habit"; habitId: string }
+  /** Days this category had at least one completion — its active days. */
+  | { type: "category"; categoryId: string };
+
+/**
+ * The window a goal is measured over.
+ *
+ * Deliberately no weekly or monthly *recurring* periods: `timesPerWeek` habit
+ * schedules and the week strip already answer "gym 3× a week", and a rolling
+ * goal would produce 52 separate results a year to store and display. A goal
+ * here is a single named stretch of time with one result.
+ */
+export type GoalPeriod =
+  | { type: "year"; year: number }
+  | { type: "custom"; from: DateKey; to: DateKey }
+  /** Runs from a date with no end — lifetime totals. */
+  | { type: "ongoing"; from: DateKey };
+
+export interface Goal {
+  id: string;
+  /** Optional; falls back to a label derived from source, target and period. */
+  name: string;
+  source: GoalSource;
+  target: number;
+  period: GoalPeriod;
+  /** Hidden from the active list but kept in history. */
+  archived: boolean;
+  createdAt: string;
+}
+
+export type GoalStatus =
+  /** The period includes today and the target hasn't been reached. */
+  | "active"
+  /** Target reached — stays in history rather than disappearing. */
+  | "completed"
+  /** The period is over and the target wasn't reached. Not a failure, a result. */
+  | "ended";
+
+/** A threshold crossed on a particular day. */
+export interface GoalMilestone {
+  /** The count this milestone marks — 25, 50, 75… */
+  value: number;
+  /** The day the count was first reached. */
+  date: DateKey;
+  /** True for the milestone that equals the goal's target. */
+  isTarget: boolean;
+}
+
+export interface GoalProgress {
+  goal: Goal;
+  status: GoalStatus;
+  /** Completions counted inside the period, as of today. */
+  current: number;
+  target: number;
+  /** 0–100, clamped. */
+  percent: number;
+  /** First day of the period. */
+  from: DateKey;
+  /** Last day, or null for an ongoing goal. */
+  to: DateKey | null;
+  /** Days elapsed, and total — null when the goal has no end. */
+  daysElapsed: number;
+  daysTotal: number | null;
+  daysRemaining: number | null;
+  /**
+   * Where a steady pace would put you today. Null for ongoing goals and for
+   * periods that haven't started, where pace is meaningless rather than zero.
+   */
+  expected: number | null;
+  /** current − expected, when pace applies. */
+  paceDelta: number | null;
+  /** The day the target was reached, when it was. */
+  completedOn: DateKey | null;
+  milestones: GoalMilestone[];
+}
+
 export type ThemePreference = "light" | "dark" | "system";
 export type CellSize = "sm" | "md" | "lg";
 
@@ -132,6 +234,10 @@ export interface AppData {
   notes: NoteMap;
   /** Which variant was logged, per habit per day. See `VariantMap`. */
   variants: VariantMap;
+  /** Targets measured against the records above. See `GoalSource`. */
+  goals: Goal[];
+  /** Hand-written moments worth remembering. See `Moment`. */
+  moments: Moment[];
   settings: AppSettings;
 }
 
@@ -146,6 +252,8 @@ export interface ExportBundle {
   sickDays: DateKey[];
   notes: NoteMap;
   variants: VariantMap;
+  goals: Goal[];
+  moments: Moment[];
   settings: AppSettings;
 }
 

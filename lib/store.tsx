@@ -9,15 +9,19 @@ import {
   useRef,
   useState,
 } from "react";
-import { MAX_NOTE_LENGTH } from "@/types";
+import { MAX_MOMENT_TITLE_LENGTH, MAX_NOTE_LENGTH } from "@/types";
 import type {
   AppData,
   AppSettings,
   Category,
   DateKey,
+  Goal,
+  GoalPeriod,
+  GoalSource,
   GoalType,
   Habit,
   HabitSchedule,
+  Moment,
 } from "@/types";
 import { getStorageProvider } from "@/storage";
 import { DEFAULT_SETTINGS, SCHEMA_VERSION, createId, normalizeAppData } from "./normalize";
@@ -31,6 +35,19 @@ export interface NewHabitInput {
   emoji: string;
   color: string;
   schedule: HabitSchedule;
+}
+
+export interface NewGoalInput {
+  name: string;
+  source: GoalSource;
+  target: number;
+  period: GoalPeriod;
+}
+
+export interface NewMomentInput {
+  date: DateKey;
+  title: string;
+  emoji: string;
 }
 
 export interface NewCategoryInput {
@@ -90,6 +107,21 @@ interface StoreValue {
    */
   reorderHabit: (draggedId: string, categoryId: string, targetId: string | null) => void;
 
+  goals: Goal[];
+  /** Non-archived goals. */
+  activeGoals: Goal[];
+  addGoal: (input: NewGoalInput) => Goal;
+  updateGoal: (id: string, patch: Partial<Omit<Goal, "id">>) => void;
+  /** Removes the goal only — never the completions it was counting. */
+  deleteGoal: (id: string) => void;
+  setGoalArchived: (id: string, archived: boolean) => void;
+
+  moments: Moment[];
+  momentsOn: (date: DateKey) => Moment[];
+  addMoment: (input: NewMomentInput) => Moment;
+  updateMoment: (id: string, patch: Partial<Omit<Moment, "id">>) => void;
+  deleteMoment: (id: string) => void;
+
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   replaceAll: (data: AppData) => void;
@@ -106,6 +138,8 @@ const EMPTY_DATA: AppData = {
   sickDays: [],
   notes: {},
   variants: {},
+  goals: [],
+  moments: [],
   settings: { ...DEFAULT_SETTINGS },
 };
 
@@ -450,6 +484,62 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const addGoal = useCallback((input: NewGoalInput): Goal => {
+    const goal: Goal = {
+      id: createId("g"),
+      name: input.name.trim().slice(0, 60),
+      source: input.source,
+      target: Math.max(1, Math.round(input.target)),
+      period: input.period,
+      archived: false,
+      createdAt: new Date().toISOString(),
+    };
+    setData((prev) => ({ ...prev, goals: [...prev.goals, goal] }));
+    return goal;
+  }, []);
+
+  const updateGoal = useCallback((id: string, patch: Partial<Omit<Goal, "id">>) => {
+    setData((prev) => ({
+      ...prev,
+      goals: prev.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)),
+    }));
+  }, []);
+
+  /**
+   * Deletes the goal and nothing else. Goals reference completions; they never
+   * own them, so removing one can't cost you a day of history.
+   */
+  const deleteGoal = useCallback((id: string) => {
+    setData((prev) => ({ ...prev, goals: prev.goals.filter((g) => g.id !== id) }));
+  }, []);
+
+  const setGoalArchived = useCallback(
+    (id: string, archived: boolean) => updateGoal(id, { archived }),
+    [updateGoal],
+  );
+
+  const addMoment = useCallback((input: NewMomentInput): Moment => {
+    const moment: Moment = {
+      id: createId("m"),
+      date: input.date,
+      title: input.title.trim().slice(0, MAX_MOMENT_TITLE_LENGTH),
+      emoji: input.emoji || "\u2726",
+    };
+    setData((prev) => ({ ...prev, moments: [...prev.moments, moment] }));
+    return moment;
+  }, []);
+
+  const updateMoment = useCallback((id: string, patch: Partial<Omit<Moment, "id">>) => {
+    setData((prev) => ({
+      ...prev,
+      moments: prev.moments.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    }));
+  }, []);
+
+  const deleteMoment = useCallback((id: string) => {
+    setData((prev) => ({ ...prev, moments: prev.moments.filter((m) => m.id !== id) }));
+  }, []);
+
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
     setData((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
   }, []);
@@ -471,6 +561,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       sickDays: [],
       notes: {},
       variants: {},
+      // Goals are structure — they survive, and simply recompute to zero.
+      // Moments are records of things that happened, so they go with history.
+      moments: [],
     }));
   }, []);
 
@@ -493,6 +586,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const live = new Set(activeCategories.map((c) => c.id));
     return habits.filter((h) => !h.archived && live.has(h.categoryId));
   }, [habits, activeCategories]);
+
+  const goals = useMemo(
+    () => [...data.goals].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [data.goals],
+  );
+  const activeGoals = useMemo(() => goals.filter((g) => !g.archived), [goals]);
+
+  const moments = useMemo(
+    () => [...data.moments].sort((a, b) => b.date.localeCompare(a.date)),
+    [data.moments],
+  );
+  const momentsOn = useCallback(
+    (date: DateKey) => moments.filter((m) => m.date === date),
+    [moments],
+  );
 
   const habitsIn = useCallback(
     (categoryId: string) => habits.filter((h) => h.categoryId === categoryId),
@@ -534,6 +642,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setArchived,
       moveHabit,
       reorderHabit,
+      goals,
+      activeGoals,
+      addGoal,
+      updateGoal,
+      deleteGoal,
+      setGoalArchived,
+      moments,
+      momentsOn,
+      addMoment,
+      updateMoment,
+      deleteMoment,
       updateSettings,
       replaceAll,
       resetAll,
@@ -546,6 +665,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addCategory, updateCategory, deleteCategory, setCategoryArchived, toggleCollapsed,
       moveCategory, reorderCategory,
       addHabit, updateHabit, deleteHabit, setArchived, moveHabit, reorderHabit,
+      goals, activeGoals, addGoal, updateGoal, deleteGoal, setGoalArchived,
+      moments, momentsOn, addMoment, updateMoment, deleteMoment,
       updateSettings, replaceAll, resetAll, clearHistory,
     ],
   );
