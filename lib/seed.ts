@@ -38,12 +38,21 @@ const SEED_GROUPS: SeedGroup[] = [
     ],
   },
   {
+    // Activity is measured per week, not per day. Its items carry
+    // `timesPerWeek` schedules so a rest day is never counted as a failure —
+    // see `CategoryProgress.scheduled`.
     name: "Activity",
     goalType: "any",
     items: [
-      { name: "Run", emoji: "🏃", color: "#12A594" },
-      { name: "Basketball", emoji: "🏀", color: "#0FB0C4" },
-      { name: "Gym", emoji: "🏋️", color: "#3B9EF5", variants: ["Push", "Pull", "Legs"] },
+      { name: "Run", emoji: "🏃", color: "#12A594", schedule: { type: "timesPerWeek", timesPerWeek: 1 } },
+      { name: "Basketball", emoji: "🏀", color: "#0FB0C4", schedule: { type: "timesPerWeek", timesPerWeek: 1 } },
+      {
+        name: "Gym",
+        emoji: "🏋️",
+        color: "#3B9EF5",
+        variants: ["Push", "Pull", "Legs"],
+        schedule: { type: "timesPerWeek", timesPerWeek: 3 },
+      },
     ],
   },
   {

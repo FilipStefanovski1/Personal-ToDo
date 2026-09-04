@@ -177,6 +177,12 @@ export interface CategoryStats {
   /** Days the category's goal was met. */
   goalDaysThisMonth: number;
   goalDaysThisYear: number;
+  /**
+   * Days this category actually had a daily goal to hit. Zero for a category
+   * measured per week (its items are all `timesPerWeek`), where a *daily*
+   * streak would be a category error rather than a real number.
+   */
+  judgedDays: number;
   /** Consecutive days meeting the goal, counting back from today. */
   currentStreak: number;
   longestStreak: number;

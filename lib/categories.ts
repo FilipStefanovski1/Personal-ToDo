@@ -1,14 +1,31 @@
 import type { Category, DateKey, Habit } from "@/types";
-import { isHabitDueOn } from "./schedule";
+import { isHabitDueOn, isScheduledDay } from "./schedule";
 
 export interface CategoryProgress {
-  /** Items due on this date. */
+  /** Items actionable on this date — what the checklist shows. */
   due: Habit[];
-  /** Items due and completed. */
+  /** Items actionable and completed. */
   completed: Habit[];
+  /**
+   * The subset of `due` the daily goal is actually judged against: items on a
+   * fixed schedule (every day, or specific weekdays).
+   *
+   * `timesPerWeek` items are deliberately excluded. They stay tappable every
+   * day, but their target is a weekly count, not a daily obligation — judging
+   * them daily would mark every rest day as a failure. "Train 3× a week"
+   * should not fail four times a week.
+   */
+  scheduled: Habit[];
+  /** Of `scheduled`, the ones completed. */
+  scheduledCompleted: Habit[];
   /** How many completions the goal asks for on this date. */
   target: number;
-  /** Whether the category's goal was met. */
+  /**
+   * Whether this day counts toward streaks and consistency at all. False when
+   * nothing was on a fixed schedule, or the day was excused as sick.
+   */
+  judged: boolean;
+  /** Whether the category's goal was met. Only meaningful when `judged`. */
   goalMet: boolean;
 }
 
@@ -51,12 +68,20 @@ export function categoryProgress(
     ? []
     : habitsInCategory.filter((h) => !h.archived && isHabitDueOn(h, date));
   const completed = due.filter((h) => isDone(h.id, date));
-  const target = goalTargetOn(category, due.length);
+
+  // Judgement runs on the fixed-schedule subset only — see `scheduled`.
+  const scheduled = due.filter((h) => isScheduledDay(h.schedule, date));
+  const scheduledCompleted = scheduled.filter((h) => isDone(h.id, date));
+  const target = goalTargetOn(category, scheduled.length);
+
   return {
     due,
     completed,
+    scheduled,
+    scheduledCompleted,
     target,
-    goalMet: target > 0 && completed.length >= target,
+    judged: target > 0,
+    goalMet: target > 0 && scheduledCompleted.length >= target,
   };
 }
 

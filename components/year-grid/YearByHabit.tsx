@@ -245,6 +245,18 @@ export function YearByHabit({
             </div>
 
             <div className="relative">
+              {/* Month separators — without them the year reads as one
+                  undifferentiated strip and you can only place a cell by
+                  tracing back up to the labels. */}
+              {bands.slice(1).map((band) => (
+                <div
+                  key={`sep-${band.month}`}
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-y-0.5 z-10 w-px bg-line-strong/50"
+                  style={{ left: band.left - CELL_GAP }}
+                />
+              ))}
+
               {/* Today marker drawn once across every row */}
               {todayIndex >= 0 ? (
                 <div

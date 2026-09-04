@@ -45,7 +45,7 @@ export function YearStats({ summary }: { summary: YearSummary }) {
   const empty = summary.totalCompletions === 0;
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Stat label="Completions" value={<AnimatedNumber value={summary.totalCompletions} />} />
 
       <Stat
@@ -60,6 +60,13 @@ export function YearStats({ summary }: { summary: YearSummary }) {
         value={<AnimatedNumber value={summary.overallStreak} />}
         suffix={summary.overallStreak === 1 ? " day" : " days"}
         placeholder={empty ? "Start tracking to begin" : undefined}
+      />
+
+      <Stat
+        label="Longest streak"
+        value={<AnimatedNumber value={summary.longestStreak} />}
+        suffix={summary.longestStreak === 1 ? " day" : " days"}
+        placeholder={summary.longestStreak === 0 ? "No full day yet" : undefined}
       />
 
       <Stat

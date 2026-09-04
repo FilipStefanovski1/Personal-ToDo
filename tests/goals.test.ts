@@ -209,3 +209,132 @@ test("a habit with no variants reports an empty breakdown", () => {
   const stats = computeHabitStats(habit("a"), { [today]: ["a"] }, 1);
   assert.deepEqual(stats.variantCounts, []);
 });
+
+test("longest streak is the best run this year, not just the current one", () => {
+  const any = category("any");
+  const habits = [habit("a")];
+  // A 3-day run in March, broken, then a 1-day run in April.
+  const completions = {
+    "2026-03-01": ["a"],
+    "2026-03-02": ["a"],
+    "2026-03-03": ["a"],
+    "2026-04-10": ["a"],
+  };
+  const summary = computeYearSummary([any], habits, completions, 2026);
+  assert.equal(summary.longestStreak, 3);
+});
+
+test("a sick day extends rather than breaks the longest streak", () => {
+  const any = category("any");
+  const habits = [habit("a")];
+  const completions = { "2026-03-01": ["a"], "2026-03-03": ["a"] };
+  const withoutExcuse = computeYearSummary([any], habits, completions, 2026);
+  assert.equal(withoutExcuse.longestStreak, 1, "the gap breaks it");
+
+  const withExcuse = computeYearSummary(
+    [any],
+    habits,
+    completions,
+    2026,
+    new Set(["2026-03-02"]),
+  );
+  assert.equal(withExcuse.longestStreak, 2, "the excused gap bridges it");
+});
+
+// --- daily judgement vs weekly items --------------------------------------
+
+test("a times-per-week item is shown but never judged as a daily goal", () => {
+  // "Train 3x a week" must not fail four times a week.
+  const weekly: Habit = { ...habit("gym"), schedule: { type: "timesPerWeek", timesPerWeek: 3 } };
+  const any = category("any");
+  const progress = categoryProgress(any, [weekly], yesterday, () => false);
+
+  assert.equal(progress.due.length, 1, "still actionable, still on the checklist");
+  assert.equal(progress.scheduled.length, 0, "but nothing was required today");
+  assert.equal(progress.judged, false, "so the day isn't judged at all");
+});
+
+test("a rest day from a weekly category doesn't break the daily streak", () => {
+  // The real shape of Filip's setup: supplements every day, gym 3x a week.
+  const supplements: Category = { ...category("all"), id: "sup", name: "Supplements" };
+  const activity: Category = { ...category("any"), id: "act", name: "Activity" };
+  const vitamin: Habit = { ...habit("vit", "sup") };
+  const gym: Habit = {
+    ...habit("gym", "act"),
+    schedule: { type: "timesPerWeek", timesPerWeek: 3 },
+  };
+
+  // Vitamins every day; gym only two of the three days.
+  const completions = {
+    [twoDaysAgo]: ["vit", "gym"],
+    [yesterday]: ["vit"], // rest day — no gym
+    [today]: ["vit", "gym"],
+  };
+
+  assert.equal(
+    computeOverallStreak([supplements, activity], [vitamin, gym], completions, new Set()),
+    3,
+    "the rest day is neutral, so the daily streak runs through it",
+  );
+
+  // Counterfactual: with gym as a daily habit, the rest day is a miss and
+  // the streak collapses to today.
+  const dailyGym: Habit = { ...habit("gym", "act") };
+  assert.equal(
+    computeOverallStreak([supplements, activity], [vitamin, dailyGym], completions, new Set()),
+    1,
+  );
+});
+
+test("a purely weekly category yields no daily streak, honestly", () => {
+  // Nothing is required on any given day, so there is no daily streak to
+  // report — better than inventing one.
+  const weekly: Habit = { ...habit("gym"), schedule: { type: "timesPerWeek", timesPerWeek: 3 } };
+  assert.equal(
+    computeOverallStreak([category("any")], [weekly], { [today]: ["gym"] }, new Set()),
+    0,
+  );
+});
+
+test("fixed-schedule items are still judged normally", () => {
+  const all = category("all");
+  const daily = [habit("a"), habit("b", "c1", 1)];
+  const progress = categoryProgress(all, daily, yesterday, doneOnly(["a"]));
+  assert.equal(progress.judged, true);
+  assert.equal(progress.target, 2);
+  assert.ok(!progress.goalMet);
+});
+
+test("weekly sessions still count as real completions", () => {
+  const weekly: Habit = { ...habit("gym"), schedule: { type: "timesPerWeek", timesPerWeek: 3 } };
+  const stats = computeCategoryStats(
+    category("any"),
+    [weekly],
+    { [twoDaysAgo]: ["gym"], [today]: ["gym"] },
+  );
+  assert.equal(stats.totalCompletions, 2, "unjudged days still hold real records");
+});
+
+test("an 'any' category counts the days you actually did something", () => {
+  // Measured per week, so no day is judged — but 2 sessions is still 2 days.
+  const gym: Habit = { ...habit("gym"), schedule: { type: "timesPerWeek", timesPerWeek: 3 } };
+  const year = Number(today.slice(0, 4));
+  const stats = computeCategoryStats(
+    category("any"),
+    [gym],
+    { [twoDaysAgo]: ["gym"], [today]: ["gym"] },
+  );
+  assert.equal(stats.goalDaysThisYear, 2, "active days, not judged days");
+  assert.equal(stats.judgedDays, 0, "and it reports having no daily goal");
+  assert.ok(year > 0);
+});
+
+test("an 'all' category still counts only fully-met days", () => {
+  const stats = computeCategoryStats(
+    category("all"),
+    [habit("a"), habit("b", "c1", 1)],
+    { [twoDaysAgo]: ["a", "b"], [yesterday]: ["a"] },
+  );
+  assert.equal(stats.goalDaysThisYear, 1, "the half day doesn't count");
+  assert.ok(stats.judgedDays >= 2);
+});

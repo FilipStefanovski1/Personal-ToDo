@@ -73,10 +73,16 @@ export function CategoryStatsCard({
             <Figure
               label="Streak"
               value={
-                <>
-                  <AnimatedNumber value={stats.currentStreak} />
-                  <span className="text-[12px] font-semibold text-ink-muted">d</span>
-                </>
+                // A daily streak is meaningless for a category measured per
+                // week — nothing was required on any given day.
+                stats.judgedDays > 0 ? (
+                  <>
+                    <AnimatedNumber value={stats.currentStreak} />
+                    <span className="text-[12px] font-semibold text-ink-muted">d</span>
+                  </>
+                ) : (
+                  <NoData />
+                )
               }
             />
           </>

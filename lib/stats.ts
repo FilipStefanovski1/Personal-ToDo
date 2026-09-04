@@ -239,6 +239,7 @@ export function computeCategoryStats(
     totalCompletions: 0,
     goalDaysThisMonth: 0,
     goalDaysThisYear: 0,
+    judgedDays: 0,
     currentStreak: 0,
     longestStreak: 0,
     averageCompletion: 0,
@@ -258,6 +259,7 @@ export function computeCategoryStats(
   let goalDaysThisYear = 0;
   let ratioSum = 0;
   let ratioDays = 0;
+  let judgedDays = 0;
   let longestStreak = 0;
   let running = 0;
   let currentStreak = 0;
@@ -268,8 +270,10 @@ export function computeCategoryStats(
   for (let i = 0; i <= span; i++) {
     const date = shiftKey(anchor, i);
     const progress = categoryProgress(category, live, date, isDone, sickDays.has(date));
-    if (progress.due.length === 0) continue;
 
+    // Raw tallies count everything that actually happened, judged or not — a
+    // "3× per week" session is a real completion even though no daily goal
+    // was riding on that date.
     totalCompletions += progress.completed.length;
     for (const habit of progress.completed) {
       if (date.startsWith(year)) {
@@ -277,9 +281,24 @@ export function computeCategoryStats(
       }
     }
 
-    if (progress.goalMet) {
+    // An "any" category is asking "did you do something?", so its day count
+    // is the days you actually did — not the days a daily goal was riding on.
+    // Otherwise a category measured per week reports zero active days while
+    // plainly showing a dozen sessions.
+    if (category.goalType === "any" && progress.completed.length > 0) {
       if (date.startsWith(month)) goalDaysThisMonth++;
       if (date.startsWith(year)) goalDaysThisYear++;
+    }
+
+    // Streaks and averages only apply where there was a daily goal.
+    if (!progress.judged) continue;
+    judgedDays++;
+
+    if (progress.goalMet) {
+      if (category.goalType !== "any") {
+        if (date.startsWith(month)) goalDaysThisMonth++;
+        if (date.startsWith(year)) goalDaysThisYear++;
+      }
       running++;
       longestStreak = Math.max(longestStreak, running);
     } else if (date !== today) {
@@ -289,7 +308,7 @@ export function computeCategoryStats(
 
     // Today is excluded from the average until it's over.
     if (date !== today) {
-      ratioSum += progress.completed.length / progress.due.length;
+      ratioSum += progress.scheduledCompleted.length / progress.scheduled.length;
       ratioDays++;
     }
   }
@@ -309,6 +328,7 @@ export function computeCategoryStats(
     totalCompletions,
     goalDaysThisMonth,
     goalDaysThisYear,
+    judgedDays,
     currentStreak,
     longestStreak,
     averageCompletion: ratioDays === 0 ? 0 : Math.round((ratioSum / ratioDays) * 100),
@@ -328,6 +348,8 @@ export interface YearSummary {
   bestMonth: string | null;
   bestMonthCount: number;
   overallStreak: number;
+  /** Best run of days where every category goal was met, this year. */
+  longestStreak: number;
   activeDays: number;
 }
 
@@ -388,9 +410,39 @@ export function computeYearSummary(
       const date = shiftKey(start, i);
       if (date === today) continue;
       const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
-      if (progress.due.length === 0) continue;
+      if (!progress.judged) continue;
       judgedDays++;
       if (progress.goalMet) goalDays++;
+    }
+  }
+
+  // Longest run of fully-met days this year, judged the same way the current
+  // streak is — by category goal, so an "any" group needs one activity.
+  let longestStreak = 0;
+  {
+    let running = 0;
+    const from = `${year}-01-01`;
+    const span = daysBetween(from, end);
+    for (let i = 0; i <= span; i++) {
+      const date = shiftKey(from, i);
+      let judged = 0;
+      let met = 0;
+      for (const category of categories) {
+        const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
+        if (inCategory.length === 0) continue;
+        const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
+        if (!progress.judged) continue;
+        judged++;
+        if (progress.goalMet) met++;
+      }
+      // A day with nothing due is neutral: it neither extends nor breaks.
+      if (judged === 0) continue;
+      if (met === judged) {
+        running++;
+        longestStreak = Math.max(longestStreak, running);
+      } else if (date !== today) {
+        running = 0;
+      }
     }
   }
 
@@ -415,6 +467,7 @@ export function computeYearSummary(
     bestMonth: bestMonthIsMeaningful ? MONTHS[bestIndex] : null,
     bestMonthCount: bestMonthIsMeaningful ? monthCounts[bestIndex] : 0,
     overallStreak: computeOverallStreak(categories, habits, completions, sickDays),
+    longestStreak,
     activeDays: activeDaySet.size,
   };
 }
@@ -455,7 +508,7 @@ export function computeOverallStreak(
       );
       if (inCategory.length === 0) continue;
       const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
-      if (progress.due.length === 0) continue;
+      if (!progress.judged) continue;
       judged++;
       if (progress.goalMet) met++;
     }
@@ -544,7 +597,7 @@ export function computeMonthSummary(
       const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
       if (inCategory.length === 0) continue;
       const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
-      if (progress.due.length === 0) continue;
+      if (!progress.judged) continue;
       judged++;
       if (progress.goalMet) met++;
     }
@@ -653,7 +706,7 @@ export function computeWeekSummary(
         const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
         if (inCategory.length === 0) continue;
         const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
-        if (progress.due.length === 0) continue;
+        if (!progress.judged) continue;
         judged++;
         if (progress.goalMet) met++;
       }
