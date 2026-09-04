@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Portal } from "./Portal";
 
 export interface TooltipState {
   x: number;
@@ -16,11 +16,10 @@ export interface TooltipState {
  * mounting a tooltip per cell.
  */
 export function GridTooltip({ state }: { state: TooltipState | null }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted || !state) return null;
+  if (!state) return null;
 
   return (
+    <Portal>
     <div
       role="tooltip"
       className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-xl border border-line bg-surface px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
@@ -34,5 +33,6 @@ export function GridTooltip({ state }: { state: TooltipState | null }) {
         {state.detail}
       </p>
     </div>
+    </Portal>
   );
 }

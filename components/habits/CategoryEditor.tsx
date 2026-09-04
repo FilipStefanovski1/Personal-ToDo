@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { Category, GoalType } from "@/types";
 import { Button } from "@/components/ui/Button";
+import { Portal } from "@/components/ui/Portal";
 
 export interface CategoryDraft {
   name: string;
@@ -71,6 +72,7 @@ export function CategoryEditor({
   const maxTarget = Math.max(2, itemCount || 6);
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
@@ -178,5 +180,6 @@ export function CategoryEditor({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }

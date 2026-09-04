@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
+import { Portal } from "@/components/ui/Portal";
 
 /**
  * A plain red override for a whole day: mark it "sick" and every category's
@@ -14,12 +13,8 @@ import { Check } from "lucide-react";
  * thing the list should be about. Sits above the mobile tab bar on small
  * screens and drops to the corner once there's no tab bar to clear.
  *
- * Portaled to `document.body`: this button lives inside the page's
- * `animate-rise` entrance wrapper, and that animation's `transform` (even
- * once settled on its identity value) establishes a new containing block for
- * `position: fixed` descendants — without the portal this pins itself to the
- * bottom of that wrapper's box, not the viewport, and can end up rendered far
- * below the fold on a tall page instead of staying docked on screen.
+ * Portaled — see `Portal` for why anything fixed has to escape the page
+ * subtree to anchor against the viewport.
  */
 export function SickDayToggle({
   active,
@@ -28,11 +23,8 @@ export function SickDayToggle({
   active: boolean;
   onToggle: () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  return createPortal(
+  return (
+    <Portal>
     <button
       type="button"
       onClick={onToggle}
@@ -61,7 +53,7 @@ export function SickDayToggle({
       <span className="text-[13px] font-semibold tracking-tight">
         {active ? "Marked sick" : "Feeling sick"}
       </span>
-    </button>,
-    document.body,
+    </button>
+    </Portal>
   );
 }

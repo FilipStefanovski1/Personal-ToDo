@@ -13,6 +13,7 @@ import {
 } from "@/lib/colors";
 import { DAY_INITIALS, weekdayOrder } from "@/lib/dates";
 import { Button } from "@/components/ui/Button";
+import { Portal } from "@/components/ui/Portal";
 
 export interface HabitDraft {
   categoryId: string;
@@ -124,6 +125,7 @@ export function HabitEditor({
   };
 
   return (
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <button
         type="button"
@@ -373,6 +375,7 @@ export function HabitEditor({
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
