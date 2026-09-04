@@ -11,6 +11,7 @@ import { categoryProgress } from "./categories";
 import {
   daysBetween,
   fromDateKey,
+  isFuture,
   shiftKey,
   startOfWeek,
   toDateKey,
@@ -550,14 +551,19 @@ export function computeMonthSummary(
     if (judged > 0 && judged === met) perfectDays++;
   }
 
-  // Same-length window last month, so a partial month isn't compared against
-  // a whole one.
+  // A month still running is compared against the same number of days last
+  // month, so a half-finished September isn't measured against a whole
+  // August. A finished month is compared against the whole of the previous
+  // one — truncating it there would quietly discard its last few days.
   const previous = new Date(year, month - 1, 1);
   const previousPrefix = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`;
   const previousLength = new Date(previous.getFullYear(), previous.getMonth() + 1, 0).getDate();
+  const comparisonWindow = isCurrentMonth
+    ? Math.min(daysElapsed, previousLength)
+    : previousLength;
   let previousTotal = 0;
   let previousHadAny = false;
-  for (let day = 1; day <= Math.min(daysElapsed, previousLength); day++) {
+  for (let day = 1; day <= comparisonWindow; day++) {
     const date = `${previousPrefix}-${String(day).padStart(2, "0")}`;
     const ids = (completions[date] ?? []).filter((id) => habitById.has(id));
     if (ids.length > 0) previousHadAny = true;
@@ -582,5 +588,124 @@ export function computeMonthSummary(
     topHabitName,
     topHabitCount,
     noteCount,
+  };
+}
+
+export interface WeekDay {
+  date: DateKey;
+  /** Categories that had something due that day. */
+  judged: number;
+  /** Of those, how many met their goal. */
+  met: number;
+  isFuture: boolean;
+  isSick: boolean;
+  isToday: boolean;
+}
+
+export interface WeekSummary {
+  days: WeekDay[];
+  /** Days where every category that had something due met its goal. */
+  daysOnTrack: number;
+  /** Days already finished (today counts as in progress, not judged). */
+  daysJudged: number;
+  totalCompletions: number;
+  /** Same-length window last week, or null if nothing was tracked then. */
+  completionsDelta: number | null;
+  topHabitName: string | null;
+  topHabitCount: number;
+}
+
+/**
+ * The current week at a glance — the unit most habits are actually lived in
+ * ("did I train three times this week?"), which neither the day nor the month
+ * answers.
+ *
+ * Measured by goal attainment rather than raw colour, so it's a genuinely
+ * different lens from the completion strips elsewhere.
+ */
+export function computeWeekSummary(
+  categories: Category[],
+  habits: Habit[],
+  completions: CompletionMap,
+  sickDays: ReadonlySet<DateKey>,
+  weekStartsOn: 0 | 1,
+  anchor: DateKey = todayKey(),
+): WeekSummary {
+  const isDone = makeCompletionLookup(completions);
+  const today = todayKey();
+  const start = startOfWeek(anchor, weekStartsOn);
+  const habitById = new Map(habits.map((h) => [h.id, h]));
+
+  const days: WeekDay[] = [];
+  const perHabit = new Map<string, number>();
+  let totalCompletions = 0;
+  let daysOnTrack = 0;
+  let daysJudged = 0;
+
+  for (let i = 0; i < 7; i++) {
+    const date = shiftKey(start, i);
+    const future = isFuture(date);
+
+    let judged = 0;
+    let met = 0;
+    if (!future) {
+      for (const category of categories) {
+        const inCategory = habits.filter((h) => h.categoryId === category.id && !h.archived);
+        if (inCategory.length === 0) continue;
+        const progress = categoryProgress(category, inCategory, date, isDone, sickDays.has(date));
+        if (progress.due.length === 0) continue;
+        judged++;
+        if (progress.goalMet) met++;
+      }
+
+      const ids = (completions[date] ?? []).filter((id) => habitById.has(id));
+      totalCompletions += ids.length;
+      for (const id of ids) perHabit.set(id, (perHabit.get(id) ?? 0) + 1);
+
+      // Today is still in progress; counting it would report a false miss.
+      if (date !== today && judged > 0) {
+        daysJudged++;
+        if (met === judged) daysOnTrack++;
+      }
+    }
+
+    days.push({
+      date,
+      judged,
+      met,
+      isFuture: future,
+      isSick: sickDays.has(date),
+      isToday: date === today,
+    });
+  }
+
+  // Same number of elapsed days last week, so a mid-week comparison is fair.
+  const elapsed = days.filter((d) => !d.isFuture).length;
+  const previousStart = shiftKey(start, -7);
+  let previousTotal = 0;
+  let previousHadAny = false;
+  for (let i = 0; i < elapsed; i++) {
+    const ids = (completions[shiftKey(previousStart, i)] ?? []).filter((id) => habitById.has(id));
+    if (ids.length > 0) previousHadAny = true;
+    previousTotal += ids.length;
+  }
+
+  let topHabitName: string | null = null;
+  let topHabitCount = 0;
+  for (const [habitId, count] of perHabit) {
+    if (count > topHabitCount) {
+      topHabitCount = count;
+      topHabitName = habitById.get(habitId)?.name ?? null;
+    }
+  }
+
+  return {
+    days,
+    daysOnTrack,
+    daysJudged,
+    totalCompletions,
+    completionsDelta: previousHadAny ? totalCompletions - previousTotal : null,
+    topHabitName,
+    topHabitCount,
   };
 }

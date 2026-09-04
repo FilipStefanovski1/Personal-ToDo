@@ -11,15 +11,17 @@ import {
   isToday as isTodayKey,
   todayKey,
 } from "@/lib/dates";
-import { computeOverallStreak } from "@/lib/stats";
+import { computeOverallStreak, computeWeekSummary } from "@/lib/stats";
 import { DayChecklist } from "@/components/habits/DayChecklist";
 import { RecentDaysStrip } from "@/components/habits/RecentDaysStrip";
+import { WeekSummary } from "@/components/habits/WeekSummary";
 import { Card, SectionLabel } from "@/components/ui/Card";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 export default function TodayPage() {
-  const { ready, activeHabits, data, settings, completionsOn, sickDaySet } = useStore();
+  const { ready, activeCategories, activeHabits, data, settings, completionsOn, sickDaySet } =
+    useStore();
   const [selected, setSelected] = useState(() => todayKey());
 
   const streak = useMemo(
@@ -28,6 +30,18 @@ export default function TodayPage() {
         ? computeOverallStreak(data.categories, data.habits, data.completions, sickDaySet)
         : 0,
     [ready, data.categories, data.habits, data.completions, sickDaySet],
+  );
+
+  const week = useMemo(
+    () =>
+      computeWeekSummary(
+        activeCategories,
+        activeHabits,
+        data.completions,
+        sickDaySet,
+        settings.weekStartsOn,
+      ),
+    [activeCategories, activeHabits, data.completions, sickDaySet, settings.weekStartsOn],
   );
 
   const yearCount = useMemo(() => {
@@ -90,6 +104,10 @@ export default function TodayPage() {
 
         <DayChecklist date={selected} />
       </Card>
+
+      {activeHabits.length > 0 ? (
+        <WeekSummary summary={week} onSelectDay={setSelected} />
+      ) : null}
 
       {activeHabits.length > 0 ? (
         <Link
