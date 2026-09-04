@@ -276,6 +276,8 @@ export interface YearHighlight {
   /** Emoji for moments; milestones carry a colour dot instead. */
   emoji?: string;
   color?: string;
+  /** True for the milestone that is the goal's own target, not a checkpoint. */
+  isTarget?: boolean;
 }
 
 export function collectYearHighlights(
@@ -307,6 +309,7 @@ export function collectYearHighlights(
           ? `${name} goal reached — ${milestone.value} ${countNoun(progress.goal.source, milestone.value)}`
           : `${name} — ${milestone.value} ${countNoun(progress.goal.source, milestone.value)}`,
         color,
+        isTarget: milestone.isTarget,
       });
     }
   }

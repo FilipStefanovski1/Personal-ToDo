@@ -149,7 +149,23 @@ list on `AppData` that every stats function threads through as an optional
   the busiest week of the year, plus each habit's strongest month where there
   genuinely was one. A month has to beat the runner-up outright to count, and
   the list ranks by that margin, so a real spike outranks a daily supplement's
-  fourth perfect month.
+  fourth perfect month. A "Review" link opens that year's recap.
+- **Year Review** (`/year/[year]/review`) — the year told back in a few
+  minutes' reading rather than measured. Opening numbers chosen editorially,
+  not every stat available; a twelve-column rhythm strip that's the shape of
+  the year at a glance (bar height is completions, the thin bar beneath is
+  consistency — two geometric readings, not a colour code); the strongest
+  month by consistency, not volume; personal records; goals grouped by what
+  actually happened — reached, still in progress, or the period closed short,
+  with no group called a failure; moments and milestones in one chronological
+  list with a deliberate size difference; a short paragraph for the habits
+  that carried the year; and a few plainly-stated patterns (most consistent
+  weekday, first vs. second half, notes written) — each shown only when the
+  data actually supports it. A past year gets "YOUR YEAR" and a finished
+  verdict on every goal; the current year gets "SO FAR" and nothing dressed up
+  as more final than it is. Every number is recomputed on open — nothing about
+  a year is cached, so correcting a day in March updates that year's review
+  exactly like it updates everywhere else.
 - **Habits** — create categories and the items inside them. Rename, re-icon,
   recolour, archive, delete, change the schedule, change the group goal, define
   optional variants (Gym → Push / Pull / Legs), and reorder both levels by
@@ -169,13 +185,14 @@ noise. A hex field is there for anything specific.
 ## Architecture
 
 ```
-app/                     routes: today (/), month, year, goals, habits, settings
+app/                     routes: today (/), month, year, year/[year]/review, goals, habits, settings
 components/
   habits/                checklist rows, category sections, editors, stats
   goals/                 goal row, editor, Today nudge
   moments/               moment editor and the day's moments
   calendar/              month grid, month summary and journal
   year-grid/             the two year layouts + their geometry
+  recap/                 Year Review sections — rhythm strip, goals, highlights, …
   ui/                    Card, Button, Segmented, Switch, tooltip, …
 lib/
   dates.ts               local-timezone date keys (see below)
@@ -183,6 +200,7 @@ lib/
   categories.ts          category goal evaluation and derived progress
   goals.ts               goal progress, pace, milestones, year highlights
   stats.ts               streaks, rates, category/week/month/year summaries
+  recap.ts               Year Review reducers — monthly breakdown, patterns, goal results
   normalize.ts           validates any untrusted data into AppData
   migrations.ts          schema upgrades, applied on load only
   store.tsx              React context over the storage provider

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   computeCategoryStats,
@@ -170,6 +170,15 @@ export default function YearPage() {
               <ChevronRight size={18} />
             </button>
           </div>
+          {summary.totalCompletions > 0 ? (
+            <Link
+              href={`/year/${year}/review`}
+              className="mt-1.5 inline-flex items-center gap-1 text-[12.5px] font-medium text-ink-muted transition-colors hover:text-ink"
+            >
+              {year === currentYear ? "Review the year so far" : `Review ${year}`}
+              <ArrowRight size={12} />
+            </Link>
+          ) : null}
         </div>
 
         <Segmented

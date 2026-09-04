@@ -3,6 +3,65 @@
 Short log of choices that aren't obvious from the code, so a future session
 doesn't re-litigate them. Newest first.
 
+## The Year Review is a reducer library plus a page, not a stored recap
+
+`lib/recap.ts` holds every calculation the review needs — monthly breakdown,
+strongest month, weekday pattern, half-year comparison, goal results, habit
+stories — as pure functions over the same `completions`/`notes`/`moments`/
+`goals` every other screen reads. Nothing is pre-computed and cached: correct
+a completion in March and the review for that year is different next time
+it's opened, the same guarantee the rest of the app already makes. The only
+new persisted thing is the URL — `/year/[year]/review` — which makes a past
+year a permanent, linkable page rather than a mode of the live Year view.
+
+## Category judgement needs its own anchor, three functions in
+
+`computeYearSummary` and `computeCategoryStats` already anchor judgement to a
+category's `firstRecordedDate` — the day tracking actually began — so an
+install's first week doesn't read as a string of misses. The new recap
+reducers (`computeMonthlyBreakdown`, `halfYearConsistency`) needed the exact
+same guard and initially shipped without it: a fresh year with real habits but
+no completions yet showed a "58% consistency, 0 completions" strongest month,
+because every category was judged from January 1st regardless of when it
+actually started being tracked. `categoryAnchors` / `judgeDate` in
+`lib/recap.ts` factor the fix out so every walk over category judgement in
+that file shares it — a bug worth naming so it isn't reintroduced by the next
+function that walks a year of days.
+
+## A first-half/second-half comparison only applies to a finished year
+
+Mid-year, the second half is a handful of elapsed weeks measured against a
+full six months of the first — showing "41% vs 23%" reads as decline when it's
+actually just less data. The Review page passes `halfYearConsistency` real
+values only when the year being viewed is in the past; for the current year it
+renders nothing rather than a comparison that would mislead by construction.
+This is the same rule the rest of the app already follows (never compare a
+month in progress against a finished one) applied to a new pair of buckets.
+
+## Moments and milestones keep their live-page hierarchy, told in a different order
+
+The Review's "What mattered" list reuses `collectYearHighlights` verbatim —
+same merge, same styling distinction between a moment's full-weight row and a
+milestone's compact dotted line — but reverses it to chronological order.
+Newest-first is right for the live Year page, where a highlight from last week
+is what you're looking for; a finished-year recap reads better start to
+finish, like a story rather than an activity log. Past a soft cap (16
+entries), the list keeps every moment and only each goal's own target
+milestone, folding the 25/50/75% checkpoints behind "show more" — six
+concurrent goals already produce up to 24 milestones on their own, which would
+crowd out the four or five moments that are the part worth reading first.
+
+## Habit stories are informational, not records
+
+`habitStories` picks a habit's best month without the tie/margin filter that
+`computeYearRecords`'s personal bests applies — a daily supplement's "best
+month" there is honestly just its longest month, shown as context in a
+paragraph about that habit, not offered as an achievement. The two sections
+can legitimately disagree (Creatine appears in habit stories with a best
+month that Personal Records omits as a tie) because they're answering
+different questions: "what happened with this habit" versus "what would you
+tell someone about."
+
 ## A personal best has to stand apart from the rest of the year
 
 The Year page's bests were listing "Vitamin B — best month · 31 in August"
